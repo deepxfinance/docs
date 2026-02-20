@@ -2,3 +2,18 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 @import 'fumadocs-openapi/css/preset.css';
+
+.prose h1 {
+    margin-top: 2rem !important;
+    margin-bottom: 1rem !important;
+}
+
+.prose h2 {
+    margin-top: 1rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+.prose h1:first-child,
+.prose h2:first-child {
+    margin-top: 0 !important;
+}

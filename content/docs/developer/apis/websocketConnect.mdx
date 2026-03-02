@@ -1,0 +1,945 @@
+---
+title: WebSocket connection endpoint
+full: true
+_openapi:
+  method: GET
+  route: /v2/ws
+  toc: []
+  structuredData:
+    headings: []
+    contents:
+      - content: >-
+          Real-time data streaming via WebSocket.
+
+
+          **Endpoint**
+
+          - URL: `/v2/ws` (GET, upgrade to WebSocket)
+
+          - Protocol: JSON messages, utf-8
+
+
+          **Markets**
+
+          - Spot: `{"type":"spot","name":"ETH/USDC"}` or
+          `{"type":"spot","pair":"0x..."}` (one of name/pair required)
+
+          - Perp: `{"type":"perp","id":1}` or
+          `{"type":"perp","name":"ETH-USDC"}` (one of id/name required)
+
+          - All (aggregate): `{"type":"all"}` (supports `volume_stats` plus user
+          portfolio channels)
+
+          - Lending (aggregate): `{"type":"lending"}` (supports `total_deposits`
+          and `total_borrows`)
+
+
+          **Subscriptions**
+
+          - Simple channels: `orderbook`, `trades`, `price_change_1h`,
+          `price_change_24h`, `volume_stats`, `latest_price`, `oracle_price`,
+          `mark_price`, `funding_rate`, `avg_funding_rate_24h`,
+          `funding_history`, `open_interest`, `long_short_ratio`,
+          `total_deposits`, `total_borrows`
+
+          - Lending pool status: `lending_pool_status` (lending market only)
+
+          - Lending pool status by asset (case-insensitive):
+            - `{"channel":"lending_pool_status","asset":"USDC"}`
+          - Asset-filtered totals (lending only, case-insensitive asset):
+            - `{"channel":"total_deposits","asset":"USDC"}`
+            - `{"channel":"total_borrows","asset":"usdc"}`
+          - User perp positions (perp only, address required):
+            - `{"channel":"user_perp_positions","address":"0x...","status":"open|closed|all"}`
+            - Legacy filter: `{"channel":"user_perp_positions","address":"0x...","onlyClosed":true}` (same as `status:"closed"`)
+            - Wallet scope (expand to all subaccounts): `{"channel":"user_perp_positions","address":"0x...","addressType":"wallet"}`
+          - User perp open orders (perp only, address required):
+            - `{"channel":"user_perp_open_orders","address":"0x..."}`
+            - Wallet scope (expand to all subaccounts): `{"channel":"user_perp_open_orders","address":"0x...","addressType":"wallet"}`
+          - User perp order history (perp only, address required):
+            - `{"channel":"user_perp_order_history","address":"0x..."}`
+          - User spot open orders (spot only, address required):
+            - `{"channel":"user_spot_open_orders","address":"0x..."}`
+            - Wallet scope (expand to all subaccounts): `{"channel":"user_spot_open_orders","address":"0x...","addressType":"wallet"}`
+          - User spot order history (spot only, address required):
+            - `{"channel":"user_spot_order_history","address":"0x..."}`
+          - User perp trade history (perp only, address required):
+            - `{"channel":"user_perp_trade_history","address":"0x..."}`
+          - User spot trade history (spot only, address required):
+            - `{"channel":"user_spot_trade_history","address":"0x..."}`
+          - User incremental channels push behavior:
+            - `user_perp_order_history`, `user_spot_open_orders`: incremental only (no snapshot/compensation)
+            - `user_perp_trade_history`, `user_spot_trade_history`: incremental only (no snapshot/compensation), batched ~100ms
+            - Use REST endpoints for full snapshot/history
+          - User balances (all only, address required):
+            - `{"channel":"user_balances","address":"0x..."}`
+          - User total deposits/borrows (all only, address required):
+            - `{"channel":"user_total_deposits","address":"0x..."}`
+          - User portfolio margin ratio (all only, address required):
+            - `{"channel":"user_portfolio_margin_ratio","address":"0x..."}`
+          - User portfolio push interval:
+            - batched every ~1s (only pushes on change; force push every ~30s)
+          - Candles channel: `{"time_frame":
+          "1m|3m|5m|15m|30m|1h|2h|4h|8h|12h|1d|3d|1w|1M"}`
+            - Server push uses `channel: "candles"` with `interval` field set to the time frame
+          - Options (optional): `orderbook_depth` (default 20),
+          `orderbook_price_size` (default 0.01), `compress` (default true)
+
+
+          **Client → Server**
+
+          - Actions: `subscribe`, `multi_subscribe`, `batch_subscribe`,
+          `unsubscribe`, `change_subscriptions`, `change_market`,
+          `change_options`, `ping`
+
+          - Subscribe:
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1, "name": "ETH-USDC"},
+            "subscriptions": ["orderbook", {"time_frame": "1m"}],
+            "options": {"orderbook_depth": 40, "orderbook_price_size": 0.1, "compress": true}
+          }
+
+          ```
+
+          - Subscribe (spot example):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "spot", "name": "ETH/USDC"},
+            "subscriptions": ["latest_price", "price_change_1h", "price_change_24h", "volume_stats"]
+          }
+
+          ```
+
+          - Subscribe (lending totals):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "lending"},
+            "subscriptions": ["total_deposits", "total_borrows"]
+          }
+
+          ```
+
+          - Subscribe (user portfolio):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "all"},
+            "subscriptions": [
+              {"channel":"user_balances","address":"0x..."},
+              {"channel":"user_total_deposits","address":"0x..."},
+              {"channel":"user_portfolio_margin_ratio","address":"0x..."}
+            ]
+          }
+
+          ```
+
+          - Server push (user_total_deposits example):
+
+          ```json
+
+          {
+            "channel": "user_total_deposits",
+            "market": {"type": "all"},
+            "data": {
+              "address": "0x...",
+              "totalDepositsUsd": 332.1,
+              "totalBorrowsUsd": 0.0,
+              "totalBorrowInterestUsd": 0.0
+            }
+          }
+
+          ```
+
+          - Subscribe (lending pool status):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "lending"},
+            "subscriptions": ["lending_pool_status"]
+          }
+
+          ```
+
+          - Subscribe (lending pool status filtered by asset):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "lending"},
+            "subscriptions": [{"channel":"lending_pool_status","asset":"USDC"}]
+          }
+
+          ```
+
+          - Subscribe (lending totals filtered by asset):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "lending"},
+            "subscriptions": [
+              {"channel": "total_deposits", "asset": "USDC"},
+              {"channel": "total_borrows", "asset": "usdc"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (user perp positions, status filter):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": [
+              {"channel": "user_perp_positions", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "status": "open"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (wallet scope: all subaccounts for perp positions):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": [
+              {"channel": "user_perp_positions", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "addressType": "wallet"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (user perp open orders):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": [
+              {"channel": "user_perp_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (wallet scope: all subaccounts for user perp open orders):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": [
+              {"channel": "user_perp_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "addressType": "wallet"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (user perp order history):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": [
+              {"channel": "user_perp_order_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (user spot open orders):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "spot", "name": "ETH/USDC"},
+            "subscriptions": [
+              {"channel": "user_spot_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (wallet scope: all subaccounts for user spot open orders):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "spot", "name": "ETH/USDC"},
+            "subscriptions": [
+              {"channel": "user_spot_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "addressType": "wallet"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (user spot order history):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "spot", "name": "ETH/USDC"},
+            "subscriptions": [
+              {"channel": "user_spot_order_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (funding history):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": ["funding_history"]
+          }
+
+          ```
+
+          - Subscribe (user perp trade history):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "perp", "id": 1},
+            "subscriptions": [
+              {"channel": "user_perp_trade_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+            ]
+          }
+
+          ```
+
+          - Subscribe (user spot trade history):
+
+          ```json
+
+          {
+            "action": "subscribe",
+            "market": {"type": "spot", "name": "ETH/USDC"},
+            "subscriptions": [
+              {"channel": "user_spot_trade_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+            ]
+          }
+
+          ```
+
+          - Server push (user trade history incremental, batched ~100ms):
+
+          ```json
+
+          {
+            "type": "data",
+            "channel": "user_perp_trade_history",
+            "market": {"type": "perp", "id": 1},
+            "data": {
+              "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19",
+              "trades": {
+                "items": [
+                  {
+                    "marketId": 1,
+                    "orderId": 87561,
+                    "isLong": true,
+                    "taker": "Buyer",
+                    "price": 2209.76,
+                    "size": 0.01,
+                    "leverage": 10,
+                    "createdAt": "2026-02-06T14:52:25.613Z",
+                    "filledDirection": "Long",
+                    "fee": 0.02
+                  },
+                  {
+                    "marketId": 1,
+                    "orderId": 87562,
+                    "isLong": true,
+                    "taker": "Buyer",
+                    "price": 2210.12,
+                    "size": 0.02,
+                    "leverage": 10,
+                    "createdAt": "2026-02-06T14:52:25.713Z",
+                    "filledDirection": "Long",
+                    "fee": 0.04
+                  }
+                ],
+                "nextId": 1234567890,
+                "hasNext": false
+              }
+            },
+            "timestamp": 1738843945613
+          }
+
+          ```
+
+          - Multi-subscribe:
+
+          ```json
+
+          {
+            "action": "multi_subscribe",
+            "markets": [{"type": "perp", "id": 1}, {"type": "perp", "id": 2}],
+            "subscriptions": ["trades", "latest_price"]
+          }
+
+          ```
+
+          - Batch subscribe (per-market subscriptions):
+
+          ```json
+
+          {
+            "action": "batch_subscribe",
+            "market_subscriptions": [
+              {
+                "market": {"type": "all"},
+                "subscriptions": [
+                  {"channel":"user_balances","address":"0x..."},
+                  {"channel":"user_total_deposits","address":"0x..."}
+                ]
+              },
+              {
+                "market": {"type": "perp", "id": 1},
+                "subscriptions": ["orderbook", "trades"]
+              }
+            ]
+          }
+
+          ```
+
+          - Unsubscribe:
+
+          ```json
+
+          {"action":"unsubscribe","market":{"type":"perp","id":1},"subscriptions":["trades"]}
+
+          ```
+
+          - Change subscriptions (replace for market):
+
+          ```json
+
+          {"action":"change_subscriptions","market":{"type":"perp","id":1},"subscriptions":["orderbook","trades"]}
+
+          ```
+
+          - Change market (keeps current subs):
+
+          ```json
+
+          {"action":"change_market","market":{"type":"spot","name":"ETH/USDC"}}
+
+          ```
+
+          - Change options:
+
+          ```json
+
+          {"action":"change_options","options":{"orderbook_depth":40,"orderbook_price_size":0.1,"compress":false}}
+
+          ```
+
+          - Heartbeat: `{"action":"ping"}`
+
+
+          **Server → Client**
+
+          - Ack:
+          `{"type":"subscribed","market":{...},"subscriptions":[...],"message":"ok"}`
+
+          - Ack (subs changed):
+          `{"type":"subscriptions_changed","market":{...},"subscriptions":[...],"message":"ok"}`
+
+          - Ack (options changed):
+          `{"type":"options_changed","options":{...},"message":"ok"}`
+
+          - Data push:
+          `{"type":"data","channel":"orderbook","market":{...},"data":{...},"timestamp":1700000000}`
+          (perp market includes `id`)
+
+          - Data push (lending totals):
+
+          ```json
+
+          {
+            "type": "data",
+            "channel": "total_deposits",
+            "market": {"type": "lending"},
+            "data": {
+              "total": 234.56,
+              "items": [
+                {"market_id": 1, "asset": "USDC", "value": 10.0},
+                {"market_id": 2, "asset": "USDC", "value": 5.0}
+              ]
+            },
+            "timestamp": 1700000000
+          }
+
+          ```
+
+          - Data push (lending pool status):
+
+          ```json
+
+          {
+            "type": "data",
+            "channel": "lending_pool_status",
+            "market": {"type": "lending"},
+            "data": {
+              "items": [
+                {
+                  "market_id": 1,
+                  "asset": "USDC",
+                  "total_supplied": 123.45,
+                  "supply_cap": 100.0,
+                  "supply_apr": 0.06,
+                  "initial_asset_weight": 0.5,
+                  "initial_borrow_weight": 0.7,
+                  "maintenance_asset_weight": 0.4,
+                  "maintenance_borrow_weight": 0.3,
+                  "total_borrowed": 12.34,
+                  "borrow_cap": 10.0,
+                  "borrow_apr": 0.08
+                }
+              ]
+            },
+            "timestamp": 1700000000
+          }
+
+          ```
+
+          - Error:
+          `{"type":"error","code":"INVALID_SUBSCRIPTION","message":"..." }`
+
+          - Heartbeat: `{"type":"pong","timestamp":1700000000}`
+
+
+          **Notes**
+
+          - One connection can manage multiple subscriptions for the selected
+          market.
+
+          - Use `change_market` to switch market without reconnecting.
+
+          - Use `change_subscriptions` / `change_options` to update settings
+          without reconnecting.
+
+          - Server replies to WebSocket-level ping/pong frames and to `ping`
+          action with `pong`.
+---
+
+{/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
+
+Real-time data streaming via WebSocket.
+
+**Endpoint**
+- URL: `/v2/ws` (GET, upgrade to WebSocket)
+- Protocol: JSON messages, utf-8
+
+**Markets**
+- Spot: `{"type":"spot","name":"ETH/USDC"}` or `{"type":"spot","pair":"0x..."}` (one of name/pair required)
+- Perp: `{"type":"perp","id":1}` or `{"type":"perp","name":"ETH-USDC"}` (one of id/name required)
+- All (aggregate): `{"type":"all"}` (supports `volume_stats` plus user portfolio channels)
+- Lending (aggregate): `{"type":"lending"}` (supports `total_deposits` and `total_borrows`)
+
+**Subscriptions**
+- Simple channels: `orderbook`, `trades`, `price_change_1h`, `price_change_24h`, `volume_stats`, `latest_price`, `oracle_price`, `mark_price`, `funding_rate`, `avg_funding_rate_24h`, `funding_history`, `open_interest`, `long_short_ratio`, `total_deposits`, `total_borrows`
+- Lending pool status: `lending_pool_status` (lending market only)
+- Lending pool status by asset (case-insensitive):
+  - `{"channel":"lending_pool_status","asset":"USDC"}`
+- Asset-filtered totals (lending only, case-insensitive asset):
+  - `{"channel":"total_deposits","asset":"USDC"}`
+  - `{"channel":"total_borrows","asset":"usdc"}`
+- User perp positions (perp only, address required):
+  - `{"channel":"user_perp_positions","address":"0x...","status":"open|closed|all"}`
+  - Legacy filter: `{"channel":"user_perp_positions","address":"0x...","onlyClosed":true}` (same as `status:"closed"`)
+  - Wallet scope (expand to all subaccounts): `{"channel":"user_perp_positions","address":"0x...","addressType":"wallet"}`
+- User perp open orders (perp only, address required):
+  - `{"channel":"user_perp_open_orders","address":"0x..."}`
+  - Wallet scope (expand to all subaccounts): `{"channel":"user_perp_open_orders","address":"0x...","addressType":"wallet"}`
+- User perp order history (perp only, address required):
+  - `{"channel":"user_perp_order_history","address":"0x..."}`
+- User spot open orders (spot only, address required):
+  - `{"channel":"user_spot_open_orders","address":"0x..."}`
+  - Wallet scope (expand to all subaccounts): `{"channel":"user_spot_open_orders","address":"0x...","addressType":"wallet"}`
+- User spot order history (spot only, address required):
+  - `{"channel":"user_spot_order_history","address":"0x..."}`
+- User perp trade history (perp only, address required):
+  - `{"channel":"user_perp_trade_history","address":"0x..."}`
+- User spot trade history (spot only, address required):
+  - `{"channel":"user_spot_trade_history","address":"0x..."}`
+- User incremental channels push behavior:
+  - `user_perp_order_history`, `user_spot_open_orders`: incremental only (no snapshot/compensation)
+  - `user_perp_trade_history`, `user_spot_trade_history`: incremental only (no snapshot/compensation), batched ~100ms
+  - Use REST endpoints for full snapshot/history
+- User balances (all only, address required):
+  - `{"channel":"user_balances","address":"0x..."}`
+- User total deposits/borrows (all only, address required):
+  - `{"channel":"user_total_deposits","address":"0x..."}`
+- User portfolio margin ratio (all only, address required):
+  - `{"channel":"user_portfolio_margin_ratio","address":"0x..."}`
+- User portfolio push interval:
+  - batched every ~1s (only pushes on change; force push every ~30s)
+- Candles channel: `{"time_frame": "1m|3m|5m|15m|30m|1h|2h|4h|8h|12h|1d|3d|1w|1M"}`
+  - Server push uses `channel: "candles"` with `interval` field set to the time frame
+- Options (optional): `orderbook_depth` (default 20), `orderbook_price_size` (default 0.01), `compress` (default true)
+
+**Client → Server**
+- Actions: `subscribe`, `multi_subscribe`, `batch_subscribe`, `unsubscribe`, `change_subscriptions`, `change_market`, `change_options`, `ping`
+- Subscribe:
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1, "name": "ETH-USDC"},
+  "subscriptions": ["orderbook", {"time_frame": "1m"}],
+  "options": {"orderbook_depth": 40, "orderbook_price_size": 0.1, "compress": true}
+}
+```
+- Subscribe (spot example):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "spot", "name": "ETH/USDC"},
+  "subscriptions": ["latest_price", "price_change_1h", "price_change_24h", "volume_stats"]
+}
+```
+- Subscribe (lending totals):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "lending"},
+  "subscriptions": ["total_deposits", "total_borrows"]
+}
+```
+- Subscribe (user portfolio):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "all"},
+  "subscriptions": [
+    {"channel":"user_balances","address":"0x..."},
+    {"channel":"user_total_deposits","address":"0x..."},
+    {"channel":"user_portfolio_margin_ratio","address":"0x..."}
+  ]
+}
+```
+- Server push (user_total_deposits example):
+```json
+{
+  "channel": "user_total_deposits",
+  "market": {"type": "all"},
+  "data": {
+    "address": "0x...",
+    "totalDepositsUsd": 332.1,
+    "totalBorrowsUsd": 0.0,
+    "totalBorrowInterestUsd": 0.0
+  }
+}
+```
+- Subscribe (lending pool status):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "lending"},
+  "subscriptions": ["lending_pool_status"]
+}
+```
+- Subscribe (lending pool status filtered by asset):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "lending"},
+  "subscriptions": [{"channel":"lending_pool_status","asset":"USDC"}]
+}
+```
+- Subscribe (lending totals filtered by asset):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "lending"},
+  "subscriptions": [
+    {"channel": "total_deposits", "asset": "USDC"},
+    {"channel": "total_borrows", "asset": "usdc"}
+  ]
+}
+```
+- Subscribe (user perp positions, status filter):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": [
+    {"channel": "user_perp_positions", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "status": "open"}
+  ]
+}
+```
+- Subscribe (wallet scope: all subaccounts for perp positions):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": [
+    {"channel": "user_perp_positions", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "addressType": "wallet"}
+  ]
+}
+```
+- Subscribe (user perp open orders):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": [
+    {"channel": "user_perp_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+  ]
+}
+```
+- Subscribe (wallet scope: all subaccounts for user perp open orders):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": [
+    {"channel": "user_perp_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "addressType": "wallet"}
+  ]
+}
+```
+- Subscribe (user perp order history):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": [
+    {"channel": "user_perp_order_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+  ]
+}
+```
+- Subscribe (user spot open orders):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "spot", "name": "ETH/USDC"},
+  "subscriptions": [
+    {"channel": "user_spot_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+  ]
+}
+```
+- Subscribe (wallet scope: all subaccounts for user spot open orders):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "spot", "name": "ETH/USDC"},
+  "subscriptions": [
+    {"channel": "user_spot_open_orders", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19", "addressType": "wallet"}
+  ]
+}
+```
+- Subscribe (user spot order history):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "spot", "name": "ETH/USDC"},
+  "subscriptions": [
+    {"channel": "user_spot_order_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+  ]
+}
+```
+- Subscribe (funding history):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": ["funding_history"]
+}
+```
+- Subscribe (user perp trade history):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "perp", "id": 1},
+  "subscriptions": [
+    {"channel": "user_perp_trade_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+  ]
+}
+```
+- Subscribe (user spot trade history):
+```json
+{
+  "action": "subscribe",
+  "market": {"type": "spot", "name": "ETH/USDC"},
+  "subscriptions": [
+    {"channel": "user_spot_trade_history", "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19"}
+  ]
+}
+```
+- Server push (user trade history incremental, batched ~100ms):
+```json
+{
+  "type": "data",
+  "channel": "user_perp_trade_history",
+  "market": {"type": "perp", "id": 1},
+  "data": {
+    "address": "0x4a09a0bda255027759d131d2c15ea549f48d0c19",
+    "trades": {
+      "items": [
+        {
+          "marketId": 1,
+          "orderId": 87561,
+          "isLong": true,
+          "taker": "Buyer",
+          "price": 2209.76,
+          "size": 0.01,
+          "leverage": 10,
+          "createdAt": "2026-02-06T14:52:25.613Z",
+          "filledDirection": "Long",
+          "fee": 0.02
+        },
+        {
+          "marketId": 1,
+          "orderId": 87562,
+          "isLong": true,
+          "taker": "Buyer",
+          "price": 2210.12,
+          "size": 0.02,
+          "leverage": 10,
+          "createdAt": "2026-02-06T14:52:25.713Z",
+          "filledDirection": "Long",
+          "fee": 0.04
+        }
+      ],
+      "nextId": 1234567890,
+      "hasNext": false
+    }
+  },
+  "timestamp": 1738843945613
+}
+```
+- Multi-subscribe:
+```json
+{
+  "action": "multi_subscribe",
+  "markets": [{"type": "perp", "id": 1}, {"type": "perp", "id": 2}],
+  "subscriptions": ["trades", "latest_price"]
+}
+```
+- Batch subscribe (per-market subscriptions):
+```json
+{
+  "action": "batch_subscribe",
+  "market_subscriptions": [
+    {
+      "market": {"type": "all"},
+      "subscriptions": [
+        {"channel":"user_balances","address":"0x..."},
+        {"channel":"user_total_deposits","address":"0x..."}
+      ]
+    },
+    {
+      "market": {"type": "perp", "id": 1},
+      "subscriptions": ["orderbook", "trades"]
+    }
+  ]
+}
+```
+- Unsubscribe:
+```json
+{"action":"unsubscribe","market":{"type":"perp","id":1},"subscriptions":["trades"]}
+```
+- Change subscriptions (replace for market):
+```json
+{"action":"change_subscriptions","market":{"type":"perp","id":1},"subscriptions":["orderbook","trades"]}
+```
+- Change market (keeps current subs):
+```json
+{"action":"change_market","market":{"type":"spot","name":"ETH/USDC"}}
+```
+- Change options:
+```json
+{"action":"change_options","options":{"orderbook_depth":40,"orderbook_price_size":0.1,"compress":false}}
+```
+- Heartbeat: `{"action":"ping"}`
+
+**Server → Client**
+- Ack: `{"type":"subscribed","market":{...},"subscriptions":[...],"message":"ok"}`
+- Ack (subs changed): `{"type":"subscriptions_changed","market":{...},"subscriptions":[...],"message":"ok"}`
+- Ack (options changed): `{"type":"options_changed","options":{...},"message":"ok"}`
+- Data push: `{"type":"data","channel":"orderbook","market":{...},"data":{...},"timestamp":1700000000}` (perp market includes `id`)
+- Data push (lending totals):
+```json
+{
+  "type": "data",
+  "channel": "total_deposits",
+  "market": {"type": "lending"},
+  "data": {
+    "total": 234.56,
+    "items": [
+      {"market_id": 1, "asset": "USDC", "value": 10.0},
+      {"market_id": 2, "asset": "USDC", "value": 5.0}
+    ]
+  },
+  "timestamp": 1700000000
+}
+```
+- Data push (lending pool status):
+```json
+{
+  "type": "data",
+  "channel": "lending_pool_status",
+  "market": {"type": "lending"},
+  "data": {
+    "items": [
+      {
+        "market_id": 1,
+        "asset": "USDC",
+        "total_supplied": 123.45,
+        "supply_cap": 100.0,
+        "supply_apr": 0.06,
+        "initial_asset_weight": 0.5,
+        "initial_borrow_weight": 0.7,
+        "maintenance_asset_weight": 0.4,
+        "maintenance_borrow_weight": 0.3,
+        "total_borrowed": 12.34,
+        "borrow_cap": 10.0,
+        "borrow_apr": 0.08
+      }
+    ]
+  },
+  "timestamp": 1700000000
+}
+```
+- Error: `{"type":"error","code":"INVALID_SUBSCRIPTION","message":"..." }`
+- Heartbeat: `{"type":"pong","timestamp":1700000000}`
+
+**Notes**
+- One connection can manage multiple subscriptions for the selected market.
+- Use `change_market` to switch market without reconnecting.
+- Use `change_subscriptions` / `change_options` to update settings without reconnecting.
+- Server replies to WebSocket-level ping/pong frames and to `ping` action with `pong`.
+
+<APIPage document={"./sdk-api.json"} operations={[{"path":"/v2/ws","method":"get"}]} webhooks={[]} hasHead={false} />

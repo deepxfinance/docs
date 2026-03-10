@@ -9,7 +9,7 @@ Funding Rate is a periodic rate applied to perpetual positions to calculate the 
 
 ## Funding Rate Calculation
 
-The funding rate is calculated based on the **Premium Index** and a fixed **Base Interest Rate**. The Base Interest Rate (I) is set to **0.01% per 8 hours**.
+The funding rate is calculated based on the **Premium Index** and a fixed **Base Interest Rate**. The Base Interest Rate ($R_\text{base}$) is set to **0.01% per 8 hours**.
 
 ### Premium Index
 
@@ -27,17 +27,19 @@ where:
 
 ### Average Premium Index
 
-The premium index is sampled periodically (currently every 5 seconds). The Average Premium Index (P) is the average of the premium index over the funding interval (currently every hour).
+The premium index is sampled periodically (currently every 5 seconds). The Average Premium Index ($P$) is the average of the premium index over the funding interval (currently every hour).
 
 ### Funding Rate Formula
 
 The funding rate is calculated by taking the 8-hour base interest rate and adding a clamped premium component.
 
 ```math
-\text{FundingRate} = \text{P} + \text{clamp}(\text{I} - \text{P}, -0.05\%, 0.05\%)
+\text{FundingRate} = P + \text{clamp}(R_\text{base} - P, \text{lowerBound}, \text{upperBound})
 ```
 
-The **clamp function** restricts a value to a specific range. If the input value is below the minimum, it returns the minimum; if above the maximum, it returns the maximum; otherwise, it returns the input value unchanged. This ensures the funding rate is equal to the base interest rate when the difference between the base interest rate and the average premium index is within the clamp range [-0.05%, 0.05%].
+The **clamp function** restricts a value to a specific range [lowerBound, upperBound], where the lower bound and upper bound are set to -0.02% and 0.02% respectively. 
+
+If the input value is below the minimum, it returns the minimum; if above the maximum, it returns the maximum; otherwise, it returns the input value unchanged. This ensures the funding rate is equal to the base interest rate when the difference between the base interest rate and the average premium index is within the clamp range.
 
 <Callout>
 The funding rate formula applies to an 8-hour period. However, funding payments occur every hour at one-eighth of the computed 8-hour rate.

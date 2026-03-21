@@ -15,9 +15,9 @@ Trading volume over the past 24 hours offers insight into how active the market 
 DeepDex charges a taker fee on executed trades. For makers, the fee structure is dynamic—positive values indicate fees paid, while negative values reflect rebates earned.
 
 The platform uses three key parameters to control trade precision:
-- Minimum Order Size: This sets the smallest allowable trade.
-- Tick Size: This defines the smallest price increment in an order.
-- Step Size: This determines the smallest increment by which trade quantities can be adjusted.
+- Tick Size: This defines the smallest price increment in an order. For example, if the tick size for BTC/USDC is 0.1 USDC, the price must be a multiple of 0.1 USDC per BTC.
+- Minimum Order Size: This sets the smallest allowable trade. For example, if the minimum order size for BTC/USDC is 0.00001 BTC, you cannot place an order for less than 0.00001 BTC.
+- Step Size: This determines the smallest increment by which trade quantities can be adjusted. For example, if the step size for BTC/USDC is 0.00001 BTC, you cannot place an order for a quantity that is not a multiple of 0.00001 BTC.
 
 Together, these parameters help maintain a clean, efficient trading environment while allowing users to execute trades with precision.
 
@@ -29,8 +29,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
       <tr>
         <th style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 2 }}>Market</th>
         <th>Taker/Maker Fee</th>
-        <th>Min Order Size</th>
         <th>Tick Size</th>
+        <th>Min Order Size</th>
         <th>Step Size</th>
         <th>Liquidator Fee</th>
         <th>Liquidation Insurance Fee</th>
@@ -41,8 +41,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
       <tr>
         <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1 }}>BTC/USDC</td>
         <td>0.04% / 0.01%</td>
+        <td>0.1 USDC</td>
         <td>0.00001 BTC</td>
-        <td>0.1</td>
         <td>0.00001 BTC</td>
         <td>0.5%</td>
         <td>0.5%</td>
@@ -52,8 +52,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
       <tr>
         <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 0 }}>ETH/USDC</td>
         <td>0.04% / 0.01%</td>
+        <td>0.01 USDC</td>
         <td>0.0001 ETH</td>
-        <td>0.01</td>
         <td>0.0001 ETH</td>
         <td>0.5%</td>
         <td>0.5%</td>
@@ -63,8 +63,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
       <tr>
         <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 0 }}>SOL/USDC</td>
         <td>0.04% / 0.01%</td>
+        <td>0.01 USDC</td>
         <td>0.001 SOL</td>
-        <td>0.01</td>
         <td>0.001 SOL</td>
         <td>0.5%</td>
         <td>0.5%</td>
@@ -95,8 +95,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
       <tr>
         <th style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 2 }}>Market</th>
         <th>Taker/Maker Fee</th>
-        <th>Min Order Size</th>
         <th>Tick Size</th>
+        <th>Min Order Size</th>
         <th>Step Size</th>
         <th>IMR</th>
         <th>MMR</th>
@@ -111,8 +111,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
       <tr>
         <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 1 }}>BTC-PERP</td>
         <td>0.01% / -0.01%</td>
+        <td>0.1 USDC</td>
         <td>0.0001 BTC</td>
-        <td>0.1</td>
         <td>0.0001 BTC</td>
         <td>4%</td>
         <td>2%</td>
@@ -126,8 +126,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
       <tr>
         <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 0 }}>ETH-PERP</td>
         <td>0.01% / -0.01%</td>
+        <td>0.01 USDC</td>
         <td>0.001 ETH</td>
-        <td>0.01</td>
         <td>0.001 ETH</td>
         <td>4%</td>
         <td>2%</td>
@@ -141,8 +141,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
       <tr>
         <td style={{ position: 'sticky', left: 0, background: '#fff', zIndex: 0 }}>SOL-PERP</td>
         <td>0.01% / -0.01%</td>
-        <td>0.01 SOL</td>
-        <td>0.01</td>
+        <td>0.01 USDC</td>
+        <td>0.01 SOL</td> 
         <td>0.01 SOL</td>
         <td>4%</td>
         <td>2%</td>

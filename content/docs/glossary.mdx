@@ -35,7 +35,7 @@ A type of futures contract that has no expiration date. Traders can hold a posit
 A Taker is a trader who places an order that gets filled immediately against an existing order on the order book.
 
 
-## Portfolio Margin
+## Unified Margin
 
 #### Initial Asset Value (IAV)
 The initial-level, risk-weighted value of an asset, calculated using its [Index Price](/glossary#index-price). It measures how much of the asset's market value can be counted as initial collateral for opening new positions or borrowing after applying the [Initial Asset Weight (IAW)](/glossary#initial-asset-weight-iaw). For asset $i$,
@@ -83,11 +83,11 @@ Maintenance Margin Requirement (MMReq), or **Total Liabilities**, represents an 
 #### Initial Margin Requirement (IMReq)
 Initial Margin Requirement (IMReq), or **Total Initial Liabilities**, represents an account's aggregate initial-level, risk-weighted value of all liabilities. It includes liabilities arising from borrowed assets, open positions, and open orders. It is used to determine the initial collateral requirements for opening new positions or borrowing.
 
-#### Portfolio Maintenance Margin Ratio (PMMR)
-Portfolio Maintenance Margin Ratio (PMMR), or **Collateral Ratio**, is the ratio of an account's [Total Collateral Value](/glossary#total-collateral-value) to its [Maintenance Margin Requirement](/glossary#maintenance-margin-requirement-mmreq). When it falls below 1, the account is undercollateralized and subject to liquidation.
+#### Unified Maintenance Margin Ratio (uniMMR)
+Unified Maintenance Margin Ratio (uniMMR), or **Collateral Ratio**, is the ratio of an account's [Total Collateral Value](/glossary#total-collateral-value) to its [Maintenance Margin Requirement](/glossary#maintenance-margin-requirement-mmreq). When it falls below 1, the account is undercollateralized and subject to liquidation.
 
-#### Portfolio Initial Margin Ratio (PIMR)
-Portfolio Initial Margin Ratio (PIMR), or **Initial Collateral Ratio**, is the ratio of an account's [Total Initial Collateral Value](/glossary#total-initial-collateral-value) to its [Initial Margin Requirement](/glossary#initial-margin-requirement-imreq). This ratio determines the maximum perpetual position size you can open and the maximum amount of assets you can borrow or withdraw.
+#### Unified Initial Margin Ratio (uniIMR)
+Unified Initial Margin Ratio (uniIMR), or **Initial Collateral Ratio**, is the ratio of an account's [Total Initial Collateral Value](/glossary#total-initial-collateral-value) to its [Initial Margin Requirement](/glossary#initial-margin-requirement-imreq). This ratio determines the maximum perpetual position size you can open and the maximum amount of assets you can borrow or withdraw.
 
 #### Total Collateral Value
 Total Collateral Value, or **Total Collateral**, is the sum of the aggregate [Maintenance Asset Value (MAV)](/glossary#maintenance-asset-value-mav) for all assets in an account, the [Unrealized PnL](/glossary#unrealized-profit-and-loss-unrealized-pnl), the unsettled funding payments, and the maintenance-level value of assets associated with open spot orders awaiting execution.

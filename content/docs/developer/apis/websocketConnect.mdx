@@ -75,7 +75,7 @@ _openapi:
             - `{"channel":"user_balances","address":"0x..."}`
           - User total deposits/borrows (all only, address required):
             - `{"channel":"user_total_deposits","address":"0x..."}`
-          - User portfolio margin ratio (all only, address required):
+          - User unified margin ratio (all only, address required):
             - `{"channel":"user_portfolio_margin_ratio","address":"0x..."}`
           - User portfolio push interval:
             - batched every ~1s (only pushes on change; force push every ~30s)
@@ -603,7 +603,7 @@ Real-time data streaming via WebSocket.
   - `{"channel":"user_balances","address":"0x..."}`
 - User total deposits/borrows (all only, address required):
   - `{"channel":"user_total_deposits","address":"0x..."}`
-- User portfolio margin ratio (all only, address required):
+- User unified margin ratio (all only, address required):
   - `{"channel":"user_portfolio_margin_ratio","address":"0x..."}`
 - User portfolio push interval:
   - batched every ~1s (only pushes on change; force push every ~30s)

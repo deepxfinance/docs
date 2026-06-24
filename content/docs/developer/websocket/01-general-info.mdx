@@ -1,0 +1,56 @@
+---
+title: WebSocket General Information
+description: Connection details, frame envelopes, heartbeat behavior, and data guarantees.
+---
+
+DeepX public API provides a high-performance, real-time data streaming service via WebSocket for market data, lending data, and transparent account activity.
+
+## 1. Connection Details
+
+| Property | Value |
+|---|---|
+| **Base Endpoint** | `wss://testnet-api.deepx.fi/v1/ws` |
+| **Protocol** | JSON text frames, UTF-8 encoded |
+| **Max Active Streams** | 1024 per connection |
+| **Session Duration** | 24 hours (forced rotation — reconnect gracefully) |
+| **Heartbeat Interval** | Server sends `{"method":"ping"}` every **20 seconds** |
+| **Pong Deadline** | Client must respond `{"method":"pong"}` within **10 seconds** |
+
+Failure to respond to a ping results in immediate TCP termination.
+
+## 2. Push Frame Envelope
+
+Data and acknowledgement frames use a unified `channel` + `data` structure. Clients should route these frames by `channel`.
+
+```json
+{
+  "channel": "spot@trades",
+  "data": {
+    "example": "payload"
+  }
+}
+```
+
+| Frame type | `channel` value | Example |
+|---|---|---|
+| Data push | The subscribed channel name | `"spot@trades"` |
+| Subscribe ACK | `"subscriptionResponse"` | — |
+| Error | `"error"` | — |
+
+Heartbeat frames are control messages and do not use the `channel` envelope:
+- Server ping: `{"method":"ping"}`
+- Client pong: `{"method":"pong"}`
+
+## 3. Public and Transparent Account Data
+
+As a decentralized exchange, all on-chain data is publicly accessible.
+
+- **Public Data** — Market-level updates (orderbooks, trades, tickers, funding rates). No authentication required.
+- **Account Data** — Subaccount-level activity (positions, orders, fills). Publicly readable; subscriptions must be scoped to a specific `subaccount` or `wallet` address.
+
+## 4. Data Integrity
+
+- **Numeric Precision** — All financial values (prices, quantities, fees) are transmitted as **strings** to prevent IEEE 754 precision loss during JSON parsing.
+- **Timestamps** — All `time` fields are Unix epoch milliseconds (`int64`).
+- **Schema Consistency** — WebSocket push payloads are structurally identical to their corresponding REST API response schemas.
+- **Update Cadence** — The DeepX matching engine processes one block approximately every **70ms**. Most streams push on each block. Change-triggered streams push only when data changes.

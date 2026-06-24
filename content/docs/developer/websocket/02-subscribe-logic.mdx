@@ -1,0 +1,110 @@
+---
+title: Subscription Management
+description: Subscribe, unsubscribe, heartbeat, active subscription listing, and error frames.
+---
+
+DeepX public API uses a JSON-RPC 2.0 inspired control protocol. Each subscription is channel-scoped — you subscribe to one channel at a time and can multiplex many subscriptions over a single connection.
+
+## 1. Subscribe
+
+```json
+{
+  "method": "subscribe",
+  "id": "req-1",
+  "params": {
+    "channel": "spot@trades",
+    "symbol": "BTC-USDC"
+  }
+}
+```
+
+The `id` field is required and must be unique per request. It is echoed back in the acknowledgement.
+
+**Acknowledgement:**
+
+```json
+{
+  "channel": "subscriptionResponse",
+  "data": {
+    "id": "req-1",
+    "method": "subscribe",
+    "params": {
+      "channel": "spot@trades",
+      "symbol": "BTC-USDC"
+    }
+  }
+}
+```
+
+## 2. Unsubscribe
+
+Send the same `params` used to subscribe, with `method` set to `unsubscribe`.
+
+```json
+{
+  "method": "unsubscribe",
+  "id": "req-2",
+  "params": {
+    "channel": "spot@trades",
+    "symbol": "BTC-USDC"
+  }
+}
+```
+
+## 3. Heartbeat
+
+The server sends a ping frame every 20 seconds. The client **must** respond within 10 seconds or the connection is terminated.
+
+```jsonc
+// Server → Client
+{ "method": "ping" }
+
+// Client → Server
+{ "method": "pong" }
+```
+
+## 4. List Active Subscriptions
+
+```jsonc
+// Request
+{ "method": "list", "id": "req-3" }
+
+// Response
+{
+  "channel": "subscriptionResponse",
+  "data": {
+    "id": "req-3",
+    "method": "list",
+    "result": [
+      "spot@trades?symbol=BTC-USDC",
+      "account@perp-positions?subaccount=0x..."
+    ]
+  }
+}
+```
+
+## 5. Error Responses
+
+Errors are returned as a `channel: "error"` frame. The `id` field matches the request that caused the error.
+The payload follows `ApiError` (`code`, `msg`, optional `param`).
+
+```json
+{
+  "channel": "error",
+  "data": {
+    "id": "req-1",
+    "code": 40401,
+    "msg": "MARKET_NOT_FOUND"
+  }
+}
+```
+
+### Error Code Reference
+
+| Code | Message | Description |
+|---|---|---|
+| `40001` | `INVALID_PARAMETER` | A required parameter is missing or has an invalid value. |
+| `40003` | `INVALID_ADDRESS` | The provided `subaccount` or `wallet` address is not a valid Ethereum address. |
+| `40401` | `MARKET_NOT_FOUND` | The `symbol` or `asset` provided does not correspond to an active market. |
+| `40402` | `CHANNEL_NOT_FOUND` | The `channel` name is not recognized. |
+| `42901` | `RATE_LIMIT_EXCEEDED` | Subscription request rate has been exceeded. |

@@ -1,0 +1,9 @@
+{
+  "title": "WebSocket",
+  "description": "Real-time DeepX market, lending, and transparent account streams.",
+  "pages": [
+    "01-general-info",
+    "02-subscribe-logic",
+    "streams"
+  ]
+}

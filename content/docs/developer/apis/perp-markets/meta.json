@@ -1,0 +1,17 @@
+{
+  "title": "Perp Markets",
+  "description": "Public market data for Perpetual contracts (tickers, funding rates, etc.).",
+  "pages": [
+    "listPerpMarkets",
+    "getPerpMarket",
+    "getPerpCandles",
+    "getMarketPerpTrades",
+    "getPerpOrderbook",
+    "getPerpOpenInterest",
+    "getPerpOpenInterestHistory",
+    "getPerpFundingRate",
+    "getPerpFundingRateHistory",
+    "getPerpLongShortRatio",
+    "getPerpLongShortRatioHistory"
+  ]
+}

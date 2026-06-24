@@ -4,6 +4,9 @@ const withMDX = createMDX();
 
 /** @type {import('next').NextConfig} */
 const config = {
+  turbopack: {
+    root: process.cwd(),
+  },
   async rewrites() {
     return [
       {

@@ -1,0 +1,27 @@
+{
+  "title": "Account",
+  "description": "Account data (wallets, subaccounts, orders, trades, positions).",
+  "pages": [
+    "getAccountSubaccounts",
+    "getOneClickTradingAccounts",
+    "getSubaccountInfo",
+    "getSubaccountPortfolio",
+    "getSubaccountMarginRatio",
+    "getPerpPositions",
+    "getPerpPositionsHistory",
+    "getPerpOrders",
+    "getPerpOpenOrders",
+    "getPerpTrades",
+    "getPerpFundingPayments",
+    "getSpotOrders",
+    "getSpotOpenOrders",
+    "getSpotTrades",
+    "getSubaccountBalances",
+    "listSubaccountBalanceEvents",
+    "listSubaccountLiquidations",
+    "getPerpOrderByTx",
+    "getSpotOrderByTx",
+    "getPerpOrderById",
+    "getSpotOrderById"
+  ]
+}

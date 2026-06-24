@@ -1,0 +1,8 @@
+{
+  "title": "Streams",
+  "description": "Market data and account data WebSocket channels.",
+  "pages": [
+    "market-data",
+    "account-data"
+  ]
+}

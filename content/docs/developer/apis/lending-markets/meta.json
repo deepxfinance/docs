@@ -1,0 +1,11 @@
+{
+  "title": "Lending Markets",
+  "description": "Lending and borrowing market parameters and real-time data.",
+  "pages": [
+    "listLendingMarkets",
+    "getLendingMarket",
+    "listLendingMarketStatuses",
+    "getLendingMarketStatus",
+    "getLendingStatusHistory"
+  ]
+}

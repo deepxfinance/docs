@@ -10,6 +10,8 @@ import { notFound } from 'next/navigation';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 import { getMDXComponents } from '@/mdx-components';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
+import { OpenAPIPage as OpenAPIPageComponent } from '@/components/openapi-page';
+import { openapi } from '@/lib/openapi';
 
 export default async function Page(props: PageProps<'/[[...slug]]'>) {
   const params = await props.params;
@@ -36,6 +38,18 @@ export default async function Page(props: PageProps<'/[[...slug]]'>) {
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
             a: createRelativeLink(source, page),
+            OpenAPIPage: async (props) => (
+              <OpenAPIPageComponent
+                {...(await openapi.preloadOpenAPIPage(page))}
+                {...props}
+              />
+            ),
+            APIPage: async (props) => (
+              <OpenAPIPageComponent
+                {...(await openapi.preloadOpenAPIPage(page))}
+                {...props}
+              />
+            ),
           })}
         />
       </DocsBody>

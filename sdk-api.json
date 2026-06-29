@@ -11,7 +11,11 @@
   },
   "servers": [
     {
-      "url": "https://fa1356g-api.deepx.fi/v1",
+      "url": "https://rest-api-testnet.deepx.fi",
+      "description": "Testnet Server"
+    },
+    {
+      "url": "https://rest-api-devnet.deepx.fi",
       "description": "Devnet Server"
     }
   ],

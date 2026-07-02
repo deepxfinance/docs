@@ -10,9 +10,6 @@ In a trading pair, the **Base Asset** is the primary asset being bought or sold 
 #### Index Price
 The Index Price is a price feed that reflects the fair *spot market* value of the asset. It is derived from a combination of prices from external data sources to provide a reliable and tamper-resistant reference for various calculations. Please refer to [Index Price and Mark Price](/trading/index-price-mark-price#mark-price) for more details.
 
-#### Leverage
-The ability to trade a position larger than your initial capital.
-
 #### Liquidation
 The forced closing of a leveraged position by the protocol when the trader's margin falls below the maintenance margin level. This happens to prevent a trader's losses from exceeding their collateral.
 
@@ -118,6 +115,9 @@ The minimum amount of margin required to open a new perpetual position.
 
 #### Initial Margin Ratio (IMR)
 The Initial Margin Ratio (IMR) of a perpetual position is the percentage of its [Notional Value](/glossary#notional-value) required as collateral to open the position.
+
+#### Leverage
+Leverage is the ratio of a position's [Notional Value](/glossary#notional-value) to the [Initial Margin](/glossary#initial-margin) required to open it. It controls position size, not liquidation distance. Max leverage per market = `1 / IMR`. See [Leverage](/trading/leverage).
 
 #### Long/Short Position
 A **long** position is a bet that the asset's price will go up, while a **short** position is a bet that it will go down.

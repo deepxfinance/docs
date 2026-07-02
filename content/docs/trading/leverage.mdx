@@ -1,0 +1,71 @@
+---
+title: Leverage
+---
+
+Leverage is the ratio of a position's [Notional Value](/glossary#notional-value) to the [Initial Margin](/glossary#initial-margin) required to open it. It controls how large a position you can open with your available collateral. It is **not** a measure of how far price must move before liquidation.
+
+## Maximum Leverage
+
+Each market sets a maximum leverage via its [Initial Margin Ratio (IMR)](/glossary#initial-margin-ratio-imr):
+
+```math
+\text{Max Leverage} = \frac{1}{\text{IMR}}
+```
+
+| IMR | Max Leverage |
+|:---:|:------------:|
+| 4% | 25x |
+| 5% | 20x |
+| 10% | 10x |
+
+## Liquidation Distance
+
+A position is liquidated when your remaining margin falls below the [Maintenance Margin Ratio (MMR)](/glossary#maintenance-margin-ratio-mmr). Because MMR is lower than IMR, the price move needed to trigger liquidation is narrower than `1 / leverage`:
+
+```math
+\text{Liquidation Distance (\%)} = \frac{1}{\text{Leverage}} - \text{MMR}
+```
+
+**Example:** A market with IMR = 4% (max 25x) and MMR = 2%. You open a max-size position with full available margin.
+
+```
+IMR = 4%   →   Max Leverage = 25x
+MMR = 2%
+
+Liquidation at 25x:  1/25 − 2% = 4% − 2% = 2%
+
+A 2% adverse price move wipes out the 2% buffer between IMR and MMR.
+Your position is correctly collateralized — but the margin buffer is thin.
+```
+
+At lower leverage the buffer widens:
+
+| Leverage | Liquidation Distance (MMR = 2%) |
+|:--------:|:-------------------------------:|
+| 25x | 2% |
+| 10x | 8% |
+| 5x | 18% |
+| 3x | 31.3% |
+| 2x | 48% |
+
+Lower leverage = wider safety margin. Higher leverage = more capital-efficient sizing, but less room before liquidation.
+
+## On-Chain Leverage
+
+Leverage is stored on-chain per subaccount. You set a **global default** that applies to all markets, with optional **per-market overrides** for individual markets. The more conservative of the two always takes effect:
+
+```
+effective_cap = min(global, per_market_override)
+```
+
+This cap constrains the maximum notional you can request when placing an order:
+
+```math
+\text{Max Notional} = \text{Available Margin} \times \text{Effective Cap}
+```
+
+Both the leverage cap and the protocol's `uniIMR ≥ 1` check must pass for an order to be accepted.
+
+New subaccounts start with the **protocol maximum** as their global default — no artificial cap. You can place orders up to the market's full max leverage. Lower it when you want to restrict your sizing on a particular market.
+
+Changing your leverage settings is a signed on-chain action. Lowering a cap never retroactively closes existing positions — only new position increases are blocked. Reduce-only orders are always allowed regardless of the cap.

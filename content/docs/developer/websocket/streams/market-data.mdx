@@ -1,0 +1,468 @@
+---
+title: Market Data Streams
+description: Real-time orderbook, trade, ticker, price, funding, open interest, candle, and lending market streams.
+---
+
+Real-time price, volume, and liquidity updates. All channels are public — no authentication required.
+
+---
+
+## 1. Orderbook (`@orderbook`)
+
+Full L2 snapshot pushed every block (~70ms). Self-healing — no local state management required; each message is a complete replacement.
+
+**Channel**: `spot@orderbook` or `perp@orderbook`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-1",
+  "params": {
+    "channel": "perp@orderbook",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@orderbook",
+  "data": {
+    "symbol": "ETH-USDC",
+    "lastUpdateId": 9004812,
+    "engineTime": 1713825891591,
+    "serverTime": 1713825891603,
+    "bids": [
+      ["2034.50", "1.200"],
+      ["2034.00", "4.800"],
+      ["2033.50", "2.100"]
+    ],
+    "asks": [
+      ["2035.00", "0.800"],
+      ["2035.50", "3.200"],
+      ["2036.00", "1.500"]
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Market symbol |
+| `lastUpdateId` | integer | Sequence ID of the last matching engine event for this book |
+| `engineTime` | int64 | Millisecond timestamp when the matching engine last updated the book |
+| `serverTime` | int64 | Millisecond timestamp when this message was compiled |
+| `bids` | `[price, qty][]` | Buy orders; best bid (highest price) first |
+| `asks` | `[price, qty][]` | Sell orders; best ask (lowest price) first |
+
+**Update cadence**: Every block (~70ms)
+
+---
+
+## 2. Trades (`@trades`)
+
+Pushes each new trade execution as it settles on-chain.
+
+**Channel**: `spot@trades` or `perp@trades`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-2",
+  "params": {
+    "channel": "perp@trades",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload** (perp):
+```json
+{
+  "channel": "perp@trades",
+  "data": {
+    "id": "74821",
+    "symbol": "ETH-USDC",
+    "marketId": 3,
+    "time": 1713825891591,
+    "price": "2034.75",
+    "qty": "0.500",
+    "quoteQty": "1017.375",
+    "takerSide": "BUY",
+    "buyOrderId": "88383",
+    "sellOrderId": "88102",
+    "takerFee": "0.025435",
+    "makerFee": "0.010173"
+  }
+}
+```
+
+**Push payload** (spot):
+```json
+{
+  "channel": "spot@trades",
+  "data": {
+    "id": "12041",
+    "symbol": "BTC-USDC",
+    "time": 1713825891591,
+    "price": "63450.00",
+    "qty": "0.010",
+    "quoteQty": "634.50",
+    "takerSide": "SELL",
+    "buyOrderId": "41200",
+    "sellOrderId": "41199",
+    "takerFee": "0.634500",
+    "makerFee": "0.317250"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Unique trade ID |
+| `symbol` | string | Market symbol |
+| `marketId` | integer | Internal validator market ID (perp only) |
+| `time` | int64 | Trade execution timestamp (epoch ms) |
+| `price` | string | Execution price |
+| `qty` | string | Base asset quantity |
+| `quoteQty` | string | Quote asset quantity |
+| `takerSide` | `"BUY"` \| `"SELL"` | Side of the taker order |
+| `buyOrderId` | string | Order ID of the buyer |
+| `sellOrderId` | string | Order ID of the seller |
+| `takerFee` | string | Fee paid by the taker |
+| `makerFee` | string | Fee paid by the maker |
+
+**Update cadence**: On new trade
+
+---
+
+## 3. Ticker (`@ticker`)
+
+Aggregated 24h market statistics.
+
+**Channel**: `spot@ticker` or `perp@ticker`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-3",
+  "params": {
+    "channel": "perp@ticker",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@ticker",
+  "data": {
+    "symbol": "ETH-USDC",
+    "lastPrice": "2034.75",
+    "priceChange1h": "-0.44",
+    "priceChange24h": "2.30",
+    "volume24h": "382948.00",
+    "tradeCount24h": 6086,
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Market symbol |
+| `lastPrice` | string | Latest trade price |
+| `priceChange1h` | string | % price change over the last 1 hour |
+| `priceChange24h` | string | % price change over the last 24 hours |
+| `volume24h` | string | Total traded volume (in quote asset) over the last 24 hours |
+| `tradeCount24h` | integer | Number of trades over the last 24 hours |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+**Update cadence**: Every block (~70ms)
+
+---
+
+## 4. Perpetual Prices (`perp@prices`)
+
+Real-time index price and mark price for a perpetual market. Index price is the external reference price (formerly `oracle_price`).
+
+**Channel**: `perp@prices`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-4",
+  "params": {
+    "channel": "perp@prices",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@prices",
+  "data": {
+    "symbol": "ETH-USDC",
+    "indexPrice": "2035.17",
+    "markPrice": "2034.99",
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Perpetual market symbol |
+| `indexPrice` | string | External reference price (aggregated from spot oracles) |
+| `markPrice` | string | Fair price used for unrealized PnL and liquidations |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+**Update cadence**: Every block (~70ms)
+
+---
+
+## 5. Funding Rate (`perp@funding-rate`)
+
+Current funding rate and 24h average for a perpetual market.
+
+**Channel**: `perp@funding-rate`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-5",
+  "params": {
+    "channel": "perp@funding-rate",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@funding-rate",
+  "data": {
+    "symbol": "ETH-USDC",
+    "fundingRate": "0.0000125",
+    "avgFundingRate24h": "0.000204",
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Perpetual market symbol |
+| `fundingRate` | string | Current funding rate as a decimal (e.g., `"0.0001"` = 0.01%) |
+| `avgFundingRate24h` | string | 24h average funding rate as a decimal |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+**Update cadence**: Every block (~70ms)
+
+---
+
+## 6. Open Interest (`perp@open-interest`)
+
+Total outstanding long/short exposure for a perpetual market.
+
+**Channel**: `perp@open-interest`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-6",
+  "params": {
+    "channel": "perp@open-interest",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@open-interest",
+  "data": {
+    "symbol": "ETH-USDC",
+    "openInterest": "42.120",
+    "openInterestValue": "85697.64",
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Perpetual market symbol |
+| `openInterest` | string | Total open interest in base asset |
+| `openInterestValue` | string | Total open interest value in quote asset |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+**Update cadence**: On change
+
+---
+
+## 7. Long-Short Ratio (`perp@long-short-ratio`)
+
+Ratio of long-to-short open positions. A value of `4.00` means there are 4× more long positions than short. Values greater than 1 indicate net long sentiment; values less than 1 indicate net short sentiment.
+
+**Channel**: `perp@long-short-ratio`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-7",
+  "params": {
+    "channel": "perp@long-short-ratio",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@long-short-ratio",
+  "data": {
+    "symbol": "ETH-USDC",
+    "longShortRatio": "4.0",
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Perpetual market symbol |
+| `longShortRatio` | string | Long-to-short position ratio (`> 0`; `> 1` = more longs than shorts) |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+**Update cadence**: Every block (~70ms)
+
+---
+
+## 8. Candles (`@candles`)
+
+In-progress OHLCV candle for the current interval. The candle updates on every block until the interval closes, at which point a final candle is pushed.
+
+**Channel**: `spot@candles` or `perp@candles`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-8",
+  "params": {
+    "channel": "perp@candles",
+    "symbol": "ETH-USDC",
+    "interval": "1m"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@candles",
+  "data": {
+    "symbol": "ETH-USDC",
+    "interval": "1m",
+    "open": "2033.50",
+    "high": "2036.00",
+    "low": "2032.80",
+    "close": "2034.75",
+    "volume": "18.420",
+    "time": 1713825840000
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Market symbol |
+| `interval` | string | Candle interval (see table below) |
+| `open` | string | Opening price |
+| `high` | string | Highest price in interval |
+| `low` | string | Lowest price in interval |
+| `close` | string | Current (or closing) price |
+| `volume` | string | Total volume traded in base asset |
+| `time` | int64 | Candle open time (epoch ms) |
+
+**Supported intervals**: `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `12h`, `1d`, `3d`, `1w`, `1M`
+
+**Update cadence**: Every block (~70ms) for the current in-progress candle
+
+---
+
+## 9. Lending Market Status (`lending@market-status`)
+
+Real-time utilization rates, APRs, and supply/borrow totals for a lending asset.
+
+**Channel**: `lending@market-status`
+
+**Subscribe** (single asset):
+```json
+{
+  "method": "subscribe",
+  "id": "req-9",
+  "params": {
+    "channel": "lending@market-status",
+    "asset": "USDC"
+  }
+}
+```
+
+**Subscribe** (all assets — omit `asset`):
+```json
+{
+  "method": "subscribe",
+  "id": "req-9",
+  "params": {
+    "channel": "lending@market-status"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "lending@market-status",
+  "data": {
+    "asset": "USDC",
+    "indexPrice": "1.0",
+    "totalSupplied": "2400000.00",
+    "totalBorrowed": "1200000.00",
+    "utilizationRate": "0.50",
+    "supplyApr": "0.04",
+    "borrowApr": "0.055",
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `asset` | string | Token symbol (e.g., `"USDC"`) |
+| `indexPrice` | string | Current index price of the asset |
+| `totalSupplied` | string | Total amount supplied to the pool |
+| `totalBorrowed` | string | Total amount borrowed from the pool |
+| `utilizationRate` | string | `totalBorrowed / totalSupplied` |
+| `supplyApr` | string | Annualized yield for suppliers |
+| `borrowApr` | string | Annualized interest rate for borrowers |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+When no `asset` filter is provided, a separate push frame is delivered for each active lending asset.
+
+**Update cadence**: On change

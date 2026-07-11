@@ -1,0 +1,452 @@
+---
+title: Transparent Account Data Streams
+description: Real-time subaccount positions, orders, trades, balances, and portfolio streams.
+---
+
+Real-time subaccount-level activity. Subscriptions must be scoped to a specific `subaccount` or `wallet` address.
+
+> In all examples below, replace `{SUBACCOUNT_ADDRESS}` with your subaccount address in DeepX and `{WALLET_ADDRESS}` with your wallet address (e.g., `{WALLET_ADDRESS}`).
+
+## Push Behavior
+
+- **On subscribe**: the server immediately pushes the current state as a raw array. There are no pagination wrappers (`hasNext`, `pageNo`, etc.).
+- **On change**: the server pushes only the changed or newly created item as a single object.
+
+Clients should initialize local state from the snapshot and apply individual updates as they arrive.
+
+---
+
+## 1. Perpetual Positions (`account@perp-positions`)
+
+Pushes position state whenever size, entry price, or unrealized PnL changes.
+
+**Channel**: `account@perp-positions`
+**Scope**: `subaccount` (required) — positions are per subaccount, not per wallet
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-10",
+  "params": {
+    "channel": "account@perp-positions",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Initial snapshot** (array):
+```json
+{
+  "channel": "account@perp-positions",
+  "data": [
+    {
+      "symbol": "ETH-USDC",
+      "subaccount": "{SUBACCOUNT_ADDRESS}",
+      "side": "BUY",
+      "qty": "0.01",
+      "entryPrice": "2025.48",
+      "leverage": "10",
+      "liquidationPrice": "1850.00",
+      "unrealizedPnl": "12.50",
+      "fundingPayment": "-0.138",
+      "takeProfit": null,
+      "stopLoss": null,
+      "time": 1713800000000,
+      "updatedTime": 1713825891591
+    }
+  ]
+}
+```
+
+**Incremental update** (single object):
+```json
+{
+  "channel": "account@perp-positions",
+  "data": {
+    "symbol": "ETH-USDC",
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "side": "BUY",
+    "qty": "0.01",
+    "entryPrice": "2025.48",
+    "leverage": "10",
+    "liquidationPrice": "1850.00",
+    "unrealizedPnl": "13.82",
+    "fundingPayment": "-0.139",
+    "takeProfit": null,
+    "stopLoss": null,
+    "time": 1713800000000,
+    "updatedTime": 1713825921591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `symbol` | string | Perpetual market symbol |
+| `subaccount` | string | Subaccount address |
+| `side` | `"BUY"` \| `"SELL"` | Position direction (`BUY` = long, `SELL` = short) |
+| `qty` | string | Current position size in base asset |
+| `entryPrice` | string | Average entry price |
+| `leverage` | string | Leverage multiplier |
+| `liquidationPrice` | string | Estimated liquidation price |
+| `unrealizedPnl` | string | Floating PnL at current mark price |
+| `fundingPayment` | string | Cumulative funding payments for this position lifecycle |
+| `takeProfit` | string \| null | Take-profit trigger price, if set |
+| `stopLoss` | string \| null | Stop-loss trigger price, if set |
+| `time` | int64 | Position open time (epoch ms) |
+| `updatedTime` | int64 | Last state change timestamp (epoch ms) |
+
+---
+
+## 2. Perpetual Orders (`account@perp-orders`)
+
+Pushes order state as it transitions through its lifecycle: pending → open → filled / canceled.
+
+**Channel**: `account@perp-orders`
+**Scope**: `subaccount` or `wallet` (one required)
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-11",
+  "params": {
+    "channel": "account@perp-orders",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Subscribe** (wallet-level — all subaccounts):
+```json
+{
+  "method": "subscribe",
+  "id": "req-11",
+  "params": {
+    "channel": "account@perp-orders",
+    "wallet": "{WALLET_ADDRESS}"
+  }
+}
+```
+
+**Initial snapshot** (array of open orders):
+```json
+{
+  "channel": "account@perp-orders",
+  "data": [
+    {
+      "orderId": "88383",
+      "symbol": "ETH-USDC",
+      "subaccount": "{SUBACCOUNT_ADDRESS}",
+      "side": "BUY",
+      "type": "LIMIT",
+      "status": "OPEN",
+      "price": "2000.00",
+      "qty": "0.01",
+      "filledQty": "0.00",
+      "remainingQty": "0.01",
+      "leverage": "10",
+      "slippage": null,
+      "takeProfit": null,
+      "stopLoss": null,
+      "reduceOnly": false,
+      "postOnly": false,
+      "fee": "0.000000",
+      "blockNumber": 8996440,
+      "txHash": "0xabc123...",
+      "time": 1713825800000
+    }
+  ]
+}
+```
+
+**Incremental update** (order fill):
+```json
+{
+  "channel": "account@perp-orders",
+  "data": {
+    "orderId": "88383",
+    "symbol": "ETH-USDC",
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "side": "BUY",
+    "type": "LIMIT",
+    "status": "FILLED",
+    "price": "2000.00",
+    "qty": "0.01",
+    "filledQty": "0.01",
+    "remainingQty": "0.00",
+    "leverage": "10",
+    "slippage": null,
+    "takeProfit": null,
+    "stopLoss": null,
+    "reduceOnly": false,
+    "postOnly": false,
+    "fee": "0.002022",
+    "blockNumber": 8996441,
+    "txHash": "0xdef456...",
+    "time": 1713825800000
+  }
+}
+```
+
+For the full order field reference, see [Get Subaccount Perpetual Order History](../../apis/account/getPerpOrders.mdx).
+
+---
+
+## 3. Spot Orders (`account@spot-orders`)
+
+Pushes spot order state changes.
+
+**Channel**: `account@spot-orders`
+**Scope**: `subaccount` or `wallet` (one required)
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-12",
+  "params": {
+    "channel": "account@spot-orders",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Initial snapshot** (array of open orders):
+```json
+{
+  "channel": "account@spot-orders",
+  "data": [
+    {
+      "orderId": "41200",
+      "symbol": "BTC-USDC",
+      "subaccount": "{SUBACCOUNT_ADDRESS}",
+      "side": "BUY",
+      "type": "LIMIT",
+      "status": "OPEN",
+      "price": "63000.00",
+      "slippage": null,
+      "qty": "0.001",
+      "remainingQty": "0.001",
+      "quoteQty": "63.00",
+      "remainingQuoteQty": "63.00",
+      "fee": "0.000000",
+      "postOnly": false,
+      "reduceOnly": false,
+      "frozen": false,
+      "blockNumber": 8689320,
+      "txHash": "0xghi789...",
+      "time": 1713825810000
+    }
+  ]
+}
+```
+
+**Incremental update** (single order object on any state change).
+
+For the full order field reference, see [Get Subaccount Spot Order History](../../apis/account/getSpotOrders.mdx).
+
+---
+
+## 4. Perpetual Trades (`account@perp-trades`)
+
+Pushes each fill as it is matched, from the perspective of the scoped account.
+
+**Channel**: `account@perp-trades`
+**Scope**: `subaccount` or `wallet` (one required)
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-13",
+  "params": {
+    "channel": "account@perp-trades",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Initial snapshot** (recent fills array):
+```json
+{
+  "channel": "account@perp-trades",
+  "data": [
+    {
+      "id": "74821",
+      "symbol": "ETH-USDC",
+      "marketId": 3,
+      "time": 1713825891591,
+      "subaccount": "{SUBACCOUNT_ADDRESS}",
+      "orderId": "88383",
+      "side": "BUY",
+      "role": "TAKER",
+      "leverage": "10",
+      "price": "2034.75",
+      "qty": "0.01",
+      "fee": "0.000101"
+    }
+  ]
+}
+```
+
+**Incremental update** (single fill object on new execution).
+
+For the full fill field reference, see [Get Subaccount Perpetual Trade History](../../apis/account/getPerpTrades.mdx).
+
+---
+
+## 5. Spot Trades (`account@spot-trades`)
+
+Pushes each spot fill from the perspective of the scoped account.
+
+**Channel**: `account@spot-trades`
+**Scope**: `subaccount` or `wallet` (one required)
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-14",
+  "params": {
+    "channel": "account@spot-trades",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Initial snapshot** (recent fills array):
+```json
+{
+  "channel": "account@spot-trades",
+  "data": [
+    {
+      "id": "12041",
+      "symbol": "BTC-USDC",
+      "time": 1713825850000,
+      "subaccount": "{SUBACCOUNT_ADDRESS}",
+      "orderId": "41199",
+      "side": "SELL",
+      "role": "MAKER",
+      "price": "63450.00",
+      "qty": "0.010",
+      "quoteQty": "634.50",
+      "fee": "0.317250"
+    }
+  ]
+}
+```
+
+**Incremental update** (single fill object on new execution).
+
+For the full fill field reference, see [Get Subaccount Spot Trade History](../../apis/account/getSpotTrades.mdx).
+
+---
+
+## 6. Account Balances (`account@balances`)
+
+Per-asset net balances for a subaccount. Pushes on any balance-affecting event: deposit, withdrawal, borrow, repayment, settlement, liquidation, or funding payment.
+
+For the full history of what caused each change, use the REST endpoint `GET /v1/account/subaccounts/{address}/balance-changes`.
+
+**Channel**: `account@balances`
+**Scope**: `subaccount` (required — balances are per subaccount)
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-15",
+  "params": {
+    "channel": "account@balances",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Initial snapshot** (array of all asset balances):
+```json
+{
+  "channel": "account@balances",
+  "data": [
+    {
+      "asset": "USDC",
+      "balance": "799.80",
+      "price": "1.0"
+    },
+    {
+      "asset": "ETH",
+      "balance": "0.500",
+      "price": "2034.75"
+    }
+  ]
+}
+```
+
+**Incremental update** (single asset entry when its balance changes):
+```json
+{
+  "channel": "account@balances",
+  "data": {
+    "asset": "USDC",
+    "balance": "-20.00",
+    "price": "1.0"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `asset` | string | Token symbol (e.g., `"USDC"`) |
+| `balance` | string | Net balance. Positive = holds asset. Negative = owes asset (from borrow or trading loss) |
+| `price` | string | Current index price in USD |
+
+---
+
+## 7. Portfolio Summary (`account@portfolio`)
+
+Unified portfolio metrics: total deposits, borrows, and the Unified Maintenance Margin Ratio (uniMMR). When `uniMMR < 1`, the subaccount is eligible for liquidation.
+
+**Channel**: `account@portfolio`
+**Scope**: `subaccount` (required)
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-16",
+  "params": {
+    "channel": "account@portfolio",
+    "subaccount": "{SUBACCOUNT_ADDRESS}"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "account@portfolio",
+  "data": {
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "totalDepositsUsd": "799.80",
+    "totalBorrowsUsd": "0.00",
+    "totalCollateral": "800.19",
+    "maintenanceMarginReq": "0.41",
+    "uniMMR": "1951.68",
+    "time": 1713825891591
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `subaccount` | string | Subaccount address |
+| `totalDepositsUsd` | string | Total USD value of deposited assets |
+| `totalBorrowsUsd` | string | Total USD value of borrowed assets |
+| `totalCollateral` | string | Total collateral value after haircuts |
+| `maintenanceMarginReq` | string | Minimum collateral required to avoid liquidation |
+| `uniMMR` | string | `totalCollateral / maintenanceMarginReq` — below `1.0` triggers liquidation |
+| `time` | int64 | Snapshot timestamp (epoch ms) |
+
+**Update cadence**: On any change to collateral or position state

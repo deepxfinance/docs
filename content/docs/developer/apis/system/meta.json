@@ -1,0 +1,8 @@
+{
+  "title": "System",
+  "description": "Connectivity, server health, and server time.",
+  "pages": [
+    "ping",
+    "getServerTime"
+  ]
+}

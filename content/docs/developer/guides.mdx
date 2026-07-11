@@ -1,0 +1,29 @@
+---
+title: Guide
+description: General API behavior, timestamps, ordering, and pagination.
+---
+
+DeepX Public API V1.
+
+## Changelog
+
+**v1.0.0 (2026-03-24)**
+
+- Initial release
+
+## General API Information
+
+- **Time Format**: All timestamps are in milliseconds (ms) by default.
+- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:
+  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.
+  * With `startTime`, returns oldest items from `startTime` up to the `limit`.
+  * With `endTime`, returns most recent items up to `endTime` and the `limit`.
+  * With both, behaves like `startTime` but does not exceed `endTime`.
+- **Pagination**: Historical data is paginated using `cursor` and `limit`. All paginated responses include `nextCursor` and `hasNext` metadata:
+  * `nextCursor`: The ID of the oldest record in the current page. Pass this as `cursor` in the next request to fetch the next (older) page. `null` when there are no more records.
+  * `hasNext`: `true` if more records are available beyond the current page. Stop paginating when `hasNext` is `false` (equivalent to the returned array length being `< limit`).
+  * When combining with `startTime`/`endTime`, all three filters apply together:
+    - With `cursor` and `endTime`, returns items after `cursor` and before `endTime` up to the `limit`.
+    - With `cursor` and `startTime`, returns items after `cursor` and after `startTime` up to the `limit`.
+    - With `cursor`, `startTime`, and `endTime`, returns items after `cursor` and between `startTime` and `endTime` up to the `limit`.
+  * When `cursor` points to a record earlier than `startTime`, all candidate records fall before the time window. The response returns an empty `items` array with `nextCursor: null` and `hasNext: false`.

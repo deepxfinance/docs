@@ -1,0 +1,3258 @@
+openapi: 3.2.0
+info:
+  title: DeepX API
+  version: 1.1.0
+  description: >
+    DeepX Public API V1.
+
+
+    ## Changelog
+
+
+    **v1.0.0 (2026-03-24)**
+
+
+    - Initial release
+
+
+    ## General API Information
+
+
+    - **Time Format**: All timestamps are in milliseconds (ms) by default. 
+
+    - **Data Order**: Data is returned in chronological order, unless noted
+    otherwise. Here is how the `startTime` and `endTime` parameters work:
+      * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.
+      * With `startTime`, returns oldest items from `startTime` up to the `limit`.
+      * With `endTime`, returns most recent items up to `endTime` and the `limit`.
+      * With both, behaves like `startTime` but does not exceed `endTime`.
+    - **Pagination**: Historical data is paginated using `cursor` and `limit`.
+    All paginated responses include `nextCursor` and `hasNext` metadata:
+      * `nextCursor`: The ID of the oldest record in the current page. Pass this as `cursor` in the next request to fetch the next (older) page. `null` when there are no more records.
+      * `hasNext`: `true` if more records are available beyond the current page. Stop paginating when `hasNext` is `false` (equivalent to the returned array length being `< limit`).
+      * When combining with `startTime`/`endTime`, all three filters apply together:
+        - With `cursor` and `endTime`, returns items after `cursor` and before `endTime` up to the `limit`.
+        - With `cursor` and `startTime`, returns items after `cursor` and after `startTime` up to the `limit`.
+        - With `cursor`, `startTime`, and `endTime`, returns items after `cursor` and between `startTime` and `endTime` up to the `limit`.
+      * When `cursor` points to a record earlier than `startTime`, all candidate records fall before the time window. The response returns an empty `items` array with `nextCursor: null` and `hasNext: false`.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: https://rest-api-testnet.deepx.fi
+    description: Testnet Server
+  - url: https://rest-api-devnet.deepx.fi
+    description: Devnet Server
+tags:
+  - name: System
+    description: Connectivity, server health, and server time.
+  - name: Spot Markets
+    description: Public market data for Spot pairs (tickers, depth, trades).
+  - name: Perp Markets
+    description: Public market data for Perpetual contracts (tickers, funding rates, etc.).
+  - name: Account
+    description: Account data (wallets, subaccounts, orders, trades, positions).
+  - name: Lending Markets
+    description: Lending and borrowing market parameters and real-time data.
+paths:
+  /v1/ping:
+    get:
+      tags:
+        - System
+      security: []
+      summary: Test Connectivity
+      description: Test connectivity to the REST API.
+      operationId: ping
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/time:
+    get:
+      tags:
+        - System
+      security: []
+      summary: Get Server Time
+      description: Returns the current server time.
+      operationId: getServerTime
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - serverTime
+                properties:
+                  serverTime:
+                    $ref: "#/components/schemas/Timestamp"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/wallets/{address}/subaccounts:
+    get:
+      tags:
+        - Account
+      summary: List Wallet Subaccounts
+      security: []
+      description: >-
+        Retrieves a list of subaccount addresses associated with a primary
+        wallet address.
+      operationId: getAccountSubaccounts
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: Primary wallet address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+      responses:
+        "200":
+          description: A list of subaccount addresses.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EvmAddress"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/wallets/{address}/one-click-trading-accounts:
+    get:
+      tags:
+        - Account
+      summary: List One-Click Trading Accounts
+      security: []
+      description: >-
+        Retrieves a list of session-key (One-Click Trading) accounts linked to a
+        primary wallet address.
+      operationId: getOneClickTradingAccounts
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: Primary wallet address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+      responses:
+        "200":
+          description: A list of session-key account addresses.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EvmAddress"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/info:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Info
+      security: []
+      description: >-
+        Retrieves profile information (owner, name) for a specific subaccount
+        address.
+      operationId: getSubaccountInfo
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+      responses:
+        "200":
+          description: The subaccount profile information.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubaccountInfo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/portfolio:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Portfolio
+      security: []
+      description: >-
+        Retrieves a unified portfolio summary for a subaccount, including net
+        account value, deposit/borrow totals, collateral, and risk metrics.
+      operationId: getSubaccountPortfolio
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+      responses:
+        "200":
+          description: The subaccount's portfolio summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountPortfolio"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/stats/margin-ratio:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Margin Ratio
+      security: []
+      description: >
+        Retrieves the Unified Maintenance Margin Ratio (uniMMR) for a specific
+        subaccount. This ratio represents the subaccount's health by comparing
+        Total Collateral Value to  the Maintenance Margin Requirement.
+      operationId: getSubaccountMarginRatio
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+      responses:
+        "200":
+          description: The subaccount's margin ratio stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - uniMMR
+                properties:
+                  uniMMR:
+                    type: string
+                    format: decimal
+                    description: Unified Maintenance Margin Ratio (Collateral Ratio).
+                    example: "1.42"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/positions:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Open Positions
+      security: []
+      description: >-
+        Retrieves the current active perpetual positions for a specific
+        subaccount.
+      operationId: getPerpPositions
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/PerpSymbolFilter"
+      responses:
+        "200":
+          description: A list of active perpetual positions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PerpPosition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/positions/history:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Position History
+      security: []
+      description: >-
+        Retrieves historical (closed) perpetual position records for a specific
+        subaccount.
+      operationId: getPerpPositionsHistory
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/PerpSymbolFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: A list of historical perpetual positions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/PerpPositionHistory.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/orders:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Perpetual Order History
+      security: []
+      description: Retrieves historical perpetual order records for a specific subaccount.
+      operationId: getPerpOrders
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/PerpSymbolFilter"
+        - name: side
+          in: query
+          required: false
+          description: Filter by order side.
+          schema:
+            $ref: "#/components/schemas/OrderSide"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A list of perpetual orders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/PerpOrder.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/orders/open:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Open Perpetual Orders
+      security: []
+      description: Retrieves currently open perpetual orders for a specific subaccount.
+      operationId: getPerpOpenOrders
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/PerpSymbolFilter"
+      responses:
+        "200":
+          description: A list of open perpetual orders.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PerpOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/trades:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Perpetual Trade History
+      security: []
+      description: Retrieves historical perpetual trade fills for a specific subaccount.
+      operationId: getPerpTrades
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/PerpSymbolFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: A list of perpetual trade fills.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/AccountPerpTrade.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/funding-payments:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Funding Payments
+      security: []
+      description: >-
+        Retrieves historical perpetual funding payment records for a specific
+        subaccount address.
+      operationId: getPerpFundingPayments
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/PerpSymbolFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: A list of funding payment records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FundingPayment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/spot/orders:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Spot Order History
+      security: []
+      description: Retrieves historical spot order records for a specific subaccount.
+      operationId: getSpotOrders
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/SpotSymbolFilter"
+        - name: side
+          in: query
+          required: false
+          description: Filter by order side.
+          schema:
+            $ref: "#/components/schemas/OrderSide"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A list of spot orders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/SpotOrder.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/spot/orders/open:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Open Spot Orders
+      security: []
+      description: Retrieves currently open spot orders for a specific subaccount.
+      operationId: getSpotOpenOrders
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/SpotSymbolFilter"
+      responses:
+        "200":
+          description: List of currently open spot orders.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpotOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/spot/trades:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Spot Trade History
+      security: []
+      description: Retrieves historical spot trade fills for a specific subaccount.
+      operationId: getSpotTrades
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/SpotSymbolFilter"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A list of spot trade fills.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/AccountSpotTrade.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/balances:
+    get:
+      tags:
+        - Account
+      summary: Get Subaccount Balances
+      security: []
+      description: Retrieves the current net balance of every asset held in a subaccount.
+      operationId: getSubaccountBalances
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+      responses:
+        "200":
+          description: >-
+            Array of per-asset balances. Negative balance means the subaccount
+            owes that asset.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountBalance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/balance-events:
+    get:
+      tags:
+        - Account
+      summary: List Balance Changes
+      security: []
+      description: >
+        Retrieves a paginated log of all balance-affecting events for a
+        subaccount, across all assets. Each record includes the signed delta,
+        the post-event balance, and the event category (deposit, borrow,
+        settlement, etc.).
+      operationId: listSubaccountBalanceEvents
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - $ref: "#/components/parameters/Cursor"
+        - name: changeType
+          in: query
+          required: false
+          description: >-
+            Comma-separated list of change types to filter by. If omitted, all
+            types are returned.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/BalanceChangeType"
+            example:
+              - DEPOSIT
+              - WITHDRAW
+      responses:
+        "200":
+          description: A list of balance change events, sorted newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/BalanceEvent.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/liquidations:
+    get:
+      tags:
+        - Account
+      summary: List Subaccount Liquidation Records
+      security: []
+      description: >
+        Retrieves a paginated log of all liquidation events for a subaccount,
+        including both perp and spot liquidations and bankruptcies. Supports
+        optional filtering by liquidator, liquidation type, and symbol.
+      operationId: listSubaccountLiquidations
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - name: liquidator
+          in: query
+          required: false
+          description: Filter by liquidator subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - name: liquidationType
+          in: query
+          required: false
+          description: Filter by liquidation type.
+          schema:
+            $ref: "#/components/schemas/LiquidationType"
+        - name: symbol
+          in: query
+          required: false
+          description: Filter by market symbol.
+          schema:
+            type: string
+            example: BTC-USDC
+      responses:
+        "200":
+          description: A list of liquidation records, sorted newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/LiquidationRecord.yaml
+                  nextCursor:
+                    oneOf:
+                      - type: string
+                        description: >-
+                          Cursor for the next page of results. Pass as `cursor`
+                          in the next request.
+                        example: MTc0NjAwMDAwMDAwMDo3MjY2MzM2OjM6MTIz
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/perp/orders/tx/{txHash}:
+    get:
+      tags:
+        - Account
+      summary: Get Perpetual Order by Transaction Hash
+      security: []
+      description: >
+        Retrieves a specific perpetual order record using its on-chain
+        transaction hash.
+      operationId: getPerpOrderByTx
+      parameters:
+        - name: txHash
+          in: path
+          required: true
+          description: The on-chain transaction hash of the order.
+          schema:
+            $ref: "#/components/schemas/EvmTxHash"
+      responses:
+        "200":
+          description: The requested perpetual order record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerpOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/spot/orders/tx/{txHash}:
+    get:
+      tags:
+        - Account
+      summary: Get Spot Order by Transaction Hash
+      security: []
+      description: >
+        Retrieves a specific spot order record using its on-chain transaction
+        hash.
+      operationId: getSpotOrderByTx
+      parameters:
+        - name: txHash
+          in: path
+          required: true
+          description: The on-chain transaction hash of the order.
+          schema:
+            $ref: "#/components/schemas/EvmTxHash"
+      responses:
+        "200":
+          description: The requested spot order record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpotOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/perp/orders/{orderId}:
+    get:
+      tags:
+        - Account
+      summary: Get Perpetual Order by ID
+      security: []
+      description: >
+        Retrieves a specific perpetual order record by its V1 indexer-assigned
+        order ID within a subaccount.
+      operationId: getPerpOrderById
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - name: orderId
+          in: path
+          required: true
+          description: The V1 indexer-assigned order ID. Unique per subaccount.
+          schema:
+            $ref: "#/components/schemas/Id"
+      responses:
+        "200":
+          description: The requested perpetual order record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerpOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/account/subaccounts/{address}/spot/orders/{orderId}:
+    get:
+      tags:
+        - Account
+      summary: Get Spot Order by ID
+      security: []
+      description: >
+        Retrieves a specific spot order record by its V1 indexer-assigned order
+        ID within a subaccount.
+      operationId: getSpotOrderById
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: The specific subaccount address.
+          schema:
+            $ref: "#/components/schemas/EvmAddress"
+        - name: orderId
+          in: path
+          required: true
+          description: The V1 indexer-assigned order ID. Unique per subaccount.
+          schema:
+            $ref: "#/components/schemas/Id"
+      responses:
+        "200":
+          description: The requested spot order record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpotOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/spot/markets:
+    get:
+      tags:
+        - Spot Markets
+      summary: List Markets
+      security: []
+      description: >-
+        Retrieves the current trading rules for multiple symbols. If no markets
+        match the provided filters, an empty array `[]` is returned.
+      operationId: listSpotMarkets
+      parameters:
+        - name: symbols
+          in: query
+          required: false
+          description: >-
+            Comma-separated list of symbols. If omitted, returns the rules for
+            all active markets.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/SpotSymbol"
+            example:
+              - BTC-USDC
+              - ETH-USDC
+      responses:
+        "200":
+          description: A list of spot markets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpotMarket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/spot/markets/{symbol}:
+    get:
+      tags:
+        - Spot Markets
+      summary: Get a Market
+      security: []
+      description: Retrieves the current trading rules for a specified symbol.
+      operationId: getSpotMarket
+      parameters:
+        - $ref: "#/components/parameters/SpotSymbol"
+      responses:
+        "200":
+          description: The spot market details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpotMarket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/spot/markets/{symbol}/candles:
+    get:
+      tags:
+        - Spot Markets
+      summary: Get Market Candles
+      security: []
+      description: >-
+        Retrieves historical candle data. If `startTime` and `endTime` are not
+        provided, the most recent candles up to the `limit` are returned.
+      operationId: getSpotCandles
+      parameters:
+        - $ref: "#/components/parameters/SpotSymbol"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - name: priceType
+          in: query
+          required: false
+          description: >-
+            The type of price. `trade` = trade price that occurred in the
+            market, `index` = index price. Defaults to `trade`.
+          schema:
+            type: string
+            enum:
+              - trade
+              - index
+            default: trade
+      responses:
+        "200":
+          description: A flat array of OHLCV tuples.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandleList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/spot/markets/{symbol}/trades:
+    get:
+      tags:
+        - Spot Markets
+      summary: Get Market Trades
+      security: []
+      description: >-
+        Retrieves the trade history for a specified spot market. If `cursor` is
+        not provided, the most recent trades up to the `limit` are returned.
+      operationId: getMarketSpotTrades
+      parameters:
+        - $ref: "#/components/parameters/SpotSymbol"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A list of trades.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/SpotTrade.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/spot/markets/{symbol}/orderbook:
+    get:
+      tags:
+        - Spot Markets
+      summary: Get Orderbook
+      security: []
+      description: Retrieves the orderbook depth for a specified spot market.
+      operationId: getSpotOrderbook
+      parameters:
+        - $ref: "#/components/parameters/SpotSymbol"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/MergeLevel"
+      responses:
+        "200":
+          description: The orderbook snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Orderbook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets:
+    get:
+      tags:
+        - Perp Markets
+      summary: List Perp Markets
+      security: []
+      description: >-
+        Retrieves the trading and risk rules for all perpetual markets. If no
+        markets match the provided filters, an empty array `[]` is returned.
+      operationId: listPerpMarkets
+      responses:
+        "200":
+          description: A list of perpetual markets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PerpMarket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get a Perp Market
+      security: []
+      description: Retrieves the trading and risk rules for a specified perpetual market.
+      operationId: getPerpMarket
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+      responses:
+        "200":
+          description: The perpetual market details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerpMarket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/candles:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Market Candles
+      security: []
+      description: >-
+        Retrieves historical candle data. If `startTime` and `endTime` are not
+        provided, the most recent candles up to the `limit` are returned.
+      operationId: getPerpCandles
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+        - name: priceType
+          in: query
+          required: false
+          description: >-
+            The type of price. `trade` = trade price that occurred in the
+            market, `index` = index price. Defaults to `trade`.
+          schema:
+            type: string
+            enum:
+              - trade
+              - index
+            default: trade
+      responses:
+        "200":
+          description: A flat array of OHLCV tuples.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandleList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/trades:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Market Trades
+      security: []
+      description: >-
+        Retrieves the trade history for a specified perpetual market. If
+        `cursor` is not provided, the most recent trades up to the `limit` are
+        returned.
+      operationId: getMarketPerpTrades
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A list of trades.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPagination"
+                properties:
+                  items:
+                    items:
+                      $ref: ../../schemas/PerpTrade.yaml
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/orderbook:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Orderbook
+      security: []
+      description: Retrieves the orderbook depth for a specified perpetual market.
+      operationId: getPerpOrderbook
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/MergeLevel"
+      responses:
+        "200":
+          description: The orderbook snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Orderbook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/open-interest:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Open Interest Snapshot
+      security: []
+      description: >-
+        Retrieves the current real-time open interest for a specified perpetual
+        market.
+      operationId: getPerpOpenInterest
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+      responses:
+        "200":
+          description: The current open interest snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenInterest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/open-interest/history:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Open Interest History
+      security: []
+      description: >
+        Retrieves historical open interest data points for a specified perpetual
+        market. If `startTime` and `endTime` are not provided, the most recent
+        records up to the `limit` are returned.
+      operationId: getPerpOpenInterestHistory
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: A list of historical open interest data points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenInterestHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/funding-rate:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Funding Rate Snapshot
+      security: []
+      description: >-
+        Retrieves the current real-time funding rate for a specified perpetual
+        market.
+      operationId: getPerpFundingRate
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+      responses:
+        "200":
+          description: The current funding rate snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundingRate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/funding-rate/history:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Funding Rate History
+      security: []
+      description: >
+        Retrieves historical funding rate data points for a specified perpetual
+        market. If `startTime` and `endTime` are not provided, the most recent
+        records up to the `limit` are returned.
+      operationId: getPerpFundingRateHistory
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: A list of historical funding rate data points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundingRateHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/long-short-ratio:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Long-Short Ratio Snapshot
+      security: []
+      description: >-
+        Retrieves the current real-time long-to-short position ratio for a
+        specified perpetual market.
+      operationId: getPerpLongShortRatio
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+      responses:
+        "200":
+          description: The current long-short ratio snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LongShortRatio"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/perp/markets/{symbol}/long-short-ratio/history:
+    get:
+      tags:
+        - Perp Markets
+      summary: Get Long-Short Ratio History
+      security: []
+      description: >
+        Retrieves historical long-short ratio data points for a specified
+        perpetual market. If `startTime` and `endTime` are not provided, the
+        most recent records up to the `limit` are returned.
+      operationId: getPerpLongShortRatioHistory
+      parameters:
+        - $ref: "#/components/parameters/PerpSymbol"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: A list of historical long-short ratio data points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LongShortRatioHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/lending/markets:
+    get:
+      tags:
+        - Lending Markets
+      summary: List Lending Markets
+      security: []
+      description: >-
+        Retrieves the static configuration parameters for all supported lending
+        pools.
+      operationId: listLendingMarkets
+      responses:
+        "200":
+          description: A list of static rules for lending markets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LendingMarket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/lending/markets/{asset}:
+    get:
+      tags:
+        - Lending Markets
+      summary: Get a Lending Market
+      security: []
+      description: >-
+        Retrieves the static configuration parameters for a specified lending
+        pool.
+      operationId: getLendingMarket
+      parameters:
+        - $ref: "#/components/parameters/LendingAsset"
+      responses:
+        "200":
+          description: The technical parameters for the lending market.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LendingMarket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/lending/markets/status:
+    get:
+      tags:
+        - Lending Markets
+      summary: List Lending Market Statuses
+      security: []
+      description: >-
+        Retrieves real-time market status (supply/borrow APR) for all lending
+        pools.
+      operationId: listLendingMarketStatuses
+      responses:
+        "200":
+          description: A list of active lending market statuses.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LendingMarketStatusList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/lending/markets/{asset}/status:
+    get:
+      tags:
+        - Lending Markets
+      summary: Get a Lending Market Status
+      security: []
+      description: >-
+        Retrieves real-time market status (supply/borrow APR) for a specified
+        lending pool.
+      operationId: getLendingMarketStatus
+      parameters:
+        - $ref: "#/components/parameters/LendingAsset"
+      responses:
+        "200":
+          description: Real-time status for the lending market.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LendingMarketStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /v1/lending/markets/{asset}/status/history:
+    get:
+      tags:
+        - Lending Markets
+      summary: Get Lending Market Status History
+      security: []
+      description: >
+        Retrieves historical market status data (supply/borrow APR) for a
+        specified lending pool. If `startTime` and `endTime` are not provided,
+        the most recent records up to the `limit` are returned.
+      operationId: getLendingStatusHistory
+      parameters:
+        - $ref: "#/components/parameters/LendingAsset"
+        - $ref: "#/components/parameters/Interval"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/StartTime"
+        - $ref: "#/components/parameters/EndTime"
+      responses:
+        "200":
+          description: Historical status data points for the lending market.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LendingMarketStatusHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+components:
+  schemas:
+    Address:
+      oneOf:
+        - $ref: "#/components/schemas/EvmAddress"
+        - $ref: "#/components/schemas/SolanaAddress"
+        - $ref: "#/components/schemas/BitcoinAddress"
+      description: >-
+        Generic on-chain address which may be one of EVM, Solana, or Bitcoin
+        formats.
+      example: "0x980dda997141caa099752905d32f4a3fb980a4e3"
+    BitcoinAddress:
+      type: string
+      pattern: ^([13][1-9A-HJ-NP-Za-km-z]{24,33}|bc1[ac-hj-np-z02-9]{11,71})$
+      description: >
+        A Bitcoin address. Supports legacy (P2PKH, 1...), SegWit (P2SH, 3...),
+        native SegWit (Bech32, bc1q...), and Taproot (bc1p...) formats.
+      example: bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq
+    EvmAddress:
+      type: string
+      pattern: ^0x[a-fA-F0-9]{40}$
+      description: An Ethereum-compatible address in 0x-prefixed hex format (20 bytes).
+      example: "0x980dda997141caa099752905d32f4a3fb980a4e3"
+    SolanaAddress:
+      type: string
+      pattern: ^[1-9A-HJ-NP-Za-km-z]{32,44}$
+      description: A Solana address in Base58 format (32-byte Ed25519 public key).
+      example: 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+    PerpSymbol:
+      type: string
+      description: A perpetual market symbol.
+      enum:
+        - BTC-USDC
+        - ETH-USDC
+        - SOL-USDC
+      example: BTC-USDC
+    SpotSymbol:
+      type: string
+      description: A spot market symbol.
+      enum:
+        - BTC-USDC
+        - ETH-USDC
+        - SOL-USDC
+      example: BTC-USDC
+    LendingAsset:
+      type: string
+      description: A lending asset symbol.
+      enum:
+        - ETH
+        - SOL
+        - USDC
+      example: USDC
+    Id:
+      type: integer
+      format: int64
+      minimum: 1
+      description: A unique 64-bit identifier.
+      example: 123456789
+    Timestamp:
+      type: integer
+      format: int64
+      minimum: 1000000000000
+      maximum: 4102444800000
+      description: A Unix timestamp in milliseconds.
+      example: 1678886400000
+    TxHash:
+      anyOf:
+        - $ref: "#/components/schemas/EvmTxHash"
+        - $ref: "#/components/schemas/SolanaTxHash"
+        - $ref: "#/components/schemas/BitcoinTxHash"
+        - $ref: "#/components/schemas/ExtrinsicHash"
+      description: >-
+        Generic on-chain transaction hash which may be one of EVM, Solana,
+        Bitcoin, or Extrinsic formats.
+      example: "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
+    BitcoinTxHash:
+      type: string
+      pattern: ^[a-fA-F0-9]{64}$
+      description: A Bitcoin transaction hash in hex format (32 bytes).
+      example: 4d1e9c6d6e5a85e3dbf8e4de9ad7c7f2c692b2f6b7a0c65162e5b8a47a5b0c70
+    EvmTxHash:
+      type: string
+      pattern: ^0x[a-fA-F0-9]{64}$
+      description: An on-chain transaction hash in 0x-prefixed hex format (32 bytes).
+      example: "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
+    SolanaTxHash:
+      type: string
+      pattern: ^[1-9A-HJ-NP-Za-km-z]{87,88}$
+      description: >-
+        A Solana transaction signature in Base58 format (64-byte Ed25519
+        signature).
+      example: >-
+        2yF9Fo9ZRZUxYg8J3MaFmPiDZ5swJiXzWM5i8ShFrcydYq2GSSjPSUHtp7BAFNhyEf4td89MvFvQssBC3PW7Smud
+    OrderSide:
+      type: string
+      description: The side of an order.
+      enum:
+        - BUY
+        - SELL
+    OrderType:
+      type: string
+      description: Basic order type.
+      enum:
+        - LIMIT
+        - MARKET
+    OrderStatus:
+      type: string
+      description: >
+        The current status of an order.
+
+
+        | Value | Description |
+
+        |---|---|
+
+        | `OPEN` | Active on the orderbook. |
+
+        | `PARTIALLY_FILLED` | Partially executed; remainder still active. |
+
+        | `FILLED` | Fully executed. |
+
+        | `CANCELED` | Canceled by user or protocol. |
+
+        | `REJECTED` | Reverted or failed on-chain. |
+
+        | `EXPIRED` | The order was canceled according to the order type's rules
+        or by the exchange. |
+      enum:
+        - OPEN
+        - PARTIALLY_FILLED
+        - FILLED
+        - CANCELED
+        - REJECTED
+        - EXPIRED
+    MarketType:
+      type: string
+      description: The specific type of the market.
+      enum:
+        - SPOT
+        - PERP
+    MarketStatus:
+      type: string
+      description: The trading status of the market.
+      enum:
+        - TRADING
+        - HALTED
+        - DELISTED
+    ApiError:
+      type: object
+      required:
+        - code
+        - msg
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: The DeepX internal error code detailing exactly what failed.
+        msg:
+          type: string
+          description: A human-readable error message explaining the failure.
+        param:
+          type: string
+          description: >-
+            Optional. If the error was caused by a specific request parameter,
+            its name is returned here.
+    Ticker:
+      type: object
+      description: >
+        A real-time market summary snapshot. Consolidates last price, price
+        change percentages, and 24-hour volume statistics for a single market.
+      required:
+        - symbol
+        - lastPrice
+        - priceChange1h
+        - priceChange24h
+        - volume24h
+        - tradeCount24h
+        - time
+      properties:
+        symbol:
+          oneOf:
+            - $ref: "#/components/schemas/SpotSymbol"
+            - $ref: "#/components/schemas/PerpSymbol"
+          description: Market symbol.
+        lastPrice:
+          type: string
+          format: decimal
+          description: The price of the most recent trade.
+          example: "2039.02"
+        priceChange1h:
+          type: string
+          format: decimal
+          description: >-
+            Price change percentage over the last 1 hour (e.g. `-0.44` =
+            -0.44%).
+          example: "-0.44"
+        priceChange24h:
+          type: string
+          format: decimal
+          description: >-
+            Price change percentage over the last 24 hours (e.g. `2.30` =
+            +2.30%).
+          example: "2.30"
+        volume24h:
+          type: string
+          format: decimal
+          description: Total traded volume in quote asset over the last 24 hours.
+          example: "382948.00"
+        tradeCount24h:
+          type: integer
+          format: int64
+          description: Total number of trades executed over the last 24 hours.
+          example: 6086
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Snapshot timestamp in milliseconds.
+    PerpPrices:
+      type: object
+      description: >
+        Real-time price snapshot for a perpetual market, combining the Index
+        Price (derived from external oracles) and the Mark Price (used for PnL
+        and liquidation calculations). Both are updated every block.
+      required:
+        - symbol
+        - indexPrice
+        - markPrice
+        - time
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        indexPrice:
+          type: string
+          format: decimal
+          description: >
+            The fair spot-market value of the underlying asset, derived from
+            external price oracles. Used as the reference for funding rate
+            calculations.
+          example: "2035.16"
+        markPrice:
+          type: string
+          format: decimal
+          description: >
+            The reference price used to calculate unrealized PnL and trigger
+            liquidations. Derived from the index price with a bounded premium.
+          example: "2034.99"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Snapshot timestamp in milliseconds.
+    LongShortRatio:
+      type: object
+      description: >
+        A snapshot of the long-to-short position ratio for a perpetual market.
+        The ratio represents the total notional value of long positions divided
+        by the total notional value of short positions. Values greater than 1
+        indicate more long exposure than short; values less than 1 indicate more
+        short exposure.
+      required:
+        - symbol
+        - longShortRatio
+        - time
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        longShortRatio:
+          type: string
+          format: decimal
+          description: >
+            Ratio of total long position notional to total short position
+            notional. Always `> 0`. A value of `4.00` means longs outweigh
+            shorts 4-to-1.
+          example: "4.00"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Snapshot timestamp in milliseconds.
+    LongShortRatioHistory:
+      type: array
+      description: A list of historical long-short ratio data points.
+      items:
+        $ref: "#/components/schemas/LongShortRatio"
+    CandleUpdate:
+      type: object
+      description: >
+        A live candle (OHLCV) update for the current open interval, pushed via
+        WebSocket on every block. Represents the in-progress candle — `close`
+        reflects the latest traded price and values will change until the
+        interval closes.
+      required:
+        - symbol
+        - interval
+        - open
+        - high
+        - low
+        - close
+        - volume
+        - time
+      properties:
+        symbol:
+          oneOf:
+            - $ref: "#/components/schemas/SpotSymbol"
+            - $ref: "#/components/schemas/PerpSymbol"
+          description: Market symbol.
+        interval:
+          type: string
+          description: The candle interval.
+          enum:
+            - 1m
+            - 3m
+            - 5m
+            - 15m
+            - 30m
+            - 1h
+            - 2h
+            - 4h
+            - 8h
+            - 12h
+            - 1d
+            - 3d
+            - 1w
+            - 1M
+          example: 1m
+        open:
+          type: string
+          format: decimal
+          description: Opening price of the interval.
+          example: "2039.03"
+        high:
+          type: string
+          format: decimal
+          description: Highest price reached within the interval so far.
+          example: "2039.03"
+        low:
+          type: string
+          format: decimal
+          description: Lowest price reached within the interval so far.
+          example: "2039.02"
+        close:
+          type: string
+          format: decimal
+          description: Latest traded price (the closing price when the interval finalizes).
+          example: "2039.02"
+        volume:
+          type: string
+          format: decimal
+          description: Total base asset volume traded within the interval so far.
+          example: "12.50"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: The opening timestamp of this candle interval in milliseconds.
+    AccountBalance:
+      type: object
+      description: >
+        The current balance of a single asset in a subaccount. Pushed on any
+        balance-affecting event (deposit, withdrawal, borrow, repay, transfer, 
+        settlement, liquidation, or funding payment).
+      required:
+        - asset
+        - balance
+        - price
+      properties:
+        asset:
+          type: string
+          description: The asset ticker symbol.
+          example: USDC
+        balance:
+          type: string
+          format: decimal
+          description: >
+            Net balance of this asset. Positive means the subaccount holds the
+            asset. Negative means the subaccount owes this asset (from borrowing
+            or realized trading losses).
+          example: "779.80"
+        price:
+          type: string
+          format: decimal
+          description: >-
+            Current index price of the asset in USD. Useful for computing
+            USD-denominated values client-side.
+          example: "1.00"
+    BalanceEvent:
+      type: object
+      description: A single balance-affecting event for an asset in a subaccount.
+      required:
+        - id
+        - asset
+        - balance
+        - balanceChange
+        - changeType
+        - time
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+          description: Unique event ID. Used as the cursor for `cursor` pagination.
+        asset:
+          type: string
+          description: The asset ticker symbol.
+          example: USDC
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Timestamp of the event (epoch ms).
+        from:
+          oneOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
+          description: Address funds came from.
+        to:
+          oneOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
+          description: Address funds went to.
+        balance:
+          type: string
+          format: decimal
+          description: Net balance of this asset after this event. Can be negative.
+          example: "779.80"
+        balanceChange:
+          type: string
+          format: decimal
+          description: >
+            Signed delta applied by this event. Positive for deposits or
+            repayments; negative for withdrawals or borrows.
+          example: "-20.00"
+        changeType:
+          $ref: "#/components/schemas/BalanceChangeType"
+        txHash:
+          oneOf:
+            - $ref: "#/components/schemas/TxHash"
+            - type: "null"
+          description: The primary on-chain transaction hash for this event on DeepX.
+        txHashType:
+          type: string
+          description: The format of txHash.
+          oneOf:
+            - type: "null"
+            - enum:
+                - EVM
+                - Extrinsic
+          example: EVM
+        height:
+          type: integer
+          format: int64
+          description: Block number.
+          example: 28565243
+        eventIndex:
+          type: integer
+          format: int64
+          description: Position of this event within the transaction.
+          example: 7
+        crossChain:
+          oneOf:
+            - $ref: "#/components/schemas/CrossChainInfo"
+            - type: "null"
+          description: >-
+            Cross-chain bridging details. Present for DEPOSIT, WITHDRAW, BORROW,
+            REPAY; null for TRANSFER.
+    CrossChainInfo:
+      type: object
+      description: >
+        Cross-chain bridging details. Present for balance changes that span
+        chains (DEPOSIT, WITHDRAW, BORROW, REPAY); null for internal TRANSFER.
+      required:
+        - bridgeId
+        - sourceChainId
+        - destinationChainId
+        - direction
+      properties:
+        bridgeId:
+          type: string
+          description: Unique bridge message or transfer ID.
+          example: 0xbridge-message-id
+        sourceChainId:
+          type: string
+          description: Chain ID where the funds originated.
+          example: "11155111"
+        destinationChainId:
+          type: string
+          description: Chain ID where the funds were delivered.
+          example: "4846"
+        direction:
+          type: string
+          description: >
+            Direction of the cross-chain transfer relative to the DeepX chain.
+            `IN` for incoming funds, `OUT` for outgoing funds.
+          enum:
+            - IN
+            - OUT
+        sourceTxHash:
+          oneOf:
+            - $ref: "#/components/schemas/TxHash"
+            - type: "null"
+          description: >-
+            Transaction hash on the source chain (e.g. the burn tx for an
+            outgoing transfer).
+        destinationTxHash:
+          oneOf:
+            - $ref: "#/components/schemas/TxHash"
+            - type: "null"
+          description: >-
+            Transaction hash on the destination chain (e.g. the mint tx for an
+            incoming transfer).
+    AccountPortfolio:
+      type: object
+      description: >
+        A unified portfolio summary for a subaccount. Includes net account
+        value, total deposit/borrow values, and other risk metrics including
+        Unified Maintenance Margin Ratio (uniMMR).
+      required:
+        - subaccount
+        - equity
+        - totalDepositsUsd
+        - totalBorrowsUsd
+        - totalCollateral
+        - maintenanceMarginReq
+        - uniMMR
+        - time
+      properties:
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+          description: The subaccount address this portfolio summary belongs to.
+        equity:
+          type: string
+          format: decimal
+          description: >
+            Net account value in USD. Calculated as total deposits minus total
+            borrows minus accrued borrow interest, plus unrealized PnL across
+            all open positions and unsettled funding payments.
+          example: "799.80"
+        totalDepositsUsd:
+          type: string
+          format: decimal
+          description: Total USD value of all assets deposited in the subaccount.
+          example: "799.80"
+        totalBorrowsUsd:
+          type: string
+          format: decimal
+          description: Total USD value of all borrowed assets.
+          example: "0"
+        totalCollateral:
+          type: string
+          format: decimal
+          description: >
+            Total risk-weighted collateral value. Equals the sum of all
+            Maintenance Asset Values (MAV) plus unrealized PnL and unsettled
+            funding payments.
+          example: "800.19"
+        maintenanceMarginReq:
+          type: string
+          format: decimal
+          description: >
+            Maintenance Margin Requirement (MMReq). The minimum collateral the
+            account must maintain across all open positions to avoid
+            liquidation.
+          example: "0.41"
+        uniMMR:
+          type: string
+          format: decimal
+          description: >
+            Unified Maintenance Margin Ratio. Calculated as `totalCollateral /
+            maintenanceMarginReq`. When this falls below `1`, the account is
+            subject to liquidation.
+          example: "1964.81"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Snapshot timestamp in milliseconds.
+    LiquidationType:
+      type: string
+      description: >
+        The type of liquidation event.
+
+
+        | Value | Description |
+
+        |---|---|
+
+        | `LIQUIDATE_PERP` | Normal perp position liquidation. |
+
+        | `LIQUIDATE_SPOT` | Normal spot position liquidation. |
+
+        | `PERP_BANKRUPTCY` | Perp position bankruptcy (position cannot cover
+        debt). |
+
+        | `SPOT_BANKRUPTCY` | Spot position bankruptcy (position cannot cover
+        debt). |
+      enum:
+        - LIQUIDATE_PERP
+        - LIQUIDATE_SPOT
+        - PERP_BANKRUPTCY
+        - SPOT_BANKRUPTCY
+    LiquidationRecord:
+      type: object
+      description: A liquidation record for a subaccount.
+      required:
+        - id
+        - symbol
+        - time
+        - subaccount
+        - liquidator
+        - liquidationType
+        - bankrupt
+        - price
+        - qty
+        - txHash
+      properties:
+        id:
+          type: string
+          description: Unique liquidation record ID. Used as the cursor for pagination.
+          example: "7266336"
+        symbol:
+          type: string
+          description: Market symbol (e.g., BTC-USDC).
+          example: BTC-USDC
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Timestamp of the liquidation event (epoch ms).
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+          description: The subaccount that was liquidated.
+        liquidator:
+          $ref: "#/components/schemas/EvmAddress"
+          description: The liquidator subaccount address.
+        price:
+          type: string
+          format: decimal
+          description: Oracle price at the time of liquidation.
+          example: "84518.94"
+        qty:
+          type: string
+          format: decimal
+          description: Base asset quantity liquidated.
+          example: "100.0"
+        liquidationType:
+          $ref: "#/components/schemas/LiquidationType"
+        bankrupt:
+          type: boolean
+          description: Whether the subaccount went bankrupt in this liquidation.
+          example: false
+        liquidationId:
+          type: string
+          description: The liquidation event identifier.
+          example: "12"
+        liquidatorOrderId:
+          type: string
+          description: The order placed by the liquidator to execute the liquidation.
+          example: "0"
+        targetAccountOrderId:
+          type: string
+          description: The order of the subaccount that was liquidated.
+          example: "17"
+        liquidatorFee:
+          type: string
+          format: decimal
+          description: Fee paid to the liquidator.
+          example: "0.8451"
+        insuranceFundFee:
+          type: string
+          format: decimal
+          description: Fee paid to the insurance fund.
+          example: "0"
+        marginFreed:
+          type: string
+          format: decimal
+          description: Margin freed from the liquidated account.
+          example: "654.321"
+        marginShortage:
+          type: string
+          format: decimal
+          description: Margin shortage in the liquidated account.
+          example: "123.456"
+        borrowAmount:
+          oneOf:
+            - type: string
+              format: decimal
+            - type: "null"
+          description: Borrow amount involved in the liquidation, if any.
+          example: null
+        canceledOrderIds:
+          type: array
+          description: IDs of orders that were canceled due to this liquidation.
+          items:
+            type: string
+            example: "18"
+        detail:
+          type: string
+          description: Human-readable detail about the liquidation.
+          example: "LiquidatePerpDetail { market_index: 3, ... }"
+        txHash:
+          $ref: "#/components/schemas/EvmTxHash"
+        height:
+          type: integer
+          format: int64
+          description: Block number at which the liquidation occurred.
+          example: 15089464
+    EmptyResponse:
+      type: object
+      description: Empty response body
+    SubaccountInfo:
+      type: object
+      description: Profile information for a specific subaccount.
+      required:
+        - subaccount
+        - owner
+        - name
+      properties:
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+          description: The subaccount wallet address.
+        owner:
+          $ref: "#/components/schemas/EvmAddress"
+          description: The primary wallet address that owns this subaccount.
+        name:
+          type: string
+          description: Human-readable name of the subaccount (e.g. "main").
+          example: main
+    PerpPosition:
+      type: object
+      description: An active perpetual position snapshot.
+      required:
+        - symbol
+        - subaccount
+        - side
+        - qty
+        - entryPrice
+        - leverage
+        - liquidationPrice
+        - unrealizedPnl
+        - time
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+        side:
+          $ref: "#/components/schemas/OrderSide"
+          description: Position side (BUY for Long, SELL for Short).
+        qty:
+          type: string
+          format: decimal
+          description: Current position size in base asset.
+          example: "0.01"
+        entryPrice:
+          type: string
+          format: decimal
+          description: Average entry price of the position.
+          example: "2025.48"
+        leverage:
+          type: string
+          format: decimal
+          description: Leverage used for this position.
+          example: "10"
+        liquidationPrice:
+          type: string
+          format: decimal
+          description: Estimated price at which the position will be liquidated.
+          example: "1850.00"
+        unrealizedPnl:
+          type: string
+          format: decimal
+          description: Floating profit or loss based on current mark price.
+          example: "12.50"
+        fundingPayment:
+          type: string
+          format: decimal
+          description: Total funding payments accumulated for this position lifecycle.
+          example: "-0.13816"
+        takeProfit:
+          type: string
+          format: decimal
+          description: Take-profit trigger price, if set.
+        stopLoss:
+          type: string
+          format: decimal
+          description: Stop-loss trigger price, if set.
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Time when the position was first opened.
+        updatedTime:
+          $ref: "#/components/schemas/Timestamp"
+          description: Last time the position state was updated.
+    LedgerPagination:
+      type: object
+      required:
+        - items
+        - hasNext
+      properties:
+        items:
+          type: array
+        nextCursor:
+          oneOf:
+            - $ref: "#/components/schemas/Id"
+            - type: "null"
+          description: >
+            Cursor for the next page of results. Pass this value as `cursor` in
+            the next request to retrieve earlier records. Null when `hasNext` is
+            false.
+        hasNext:
+          type: boolean
+          description: Whether more records are available beyond this page.
+    PerpOrder:
+      type: object
+      description: A perpetual order record.
+      required:
+        - orderId
+        - symbol
+        - subaccount
+        - side
+        - type
+        - status
+        - time
+        - price
+        - qty
+        - filledQty
+        - remainingQty
+        - leverage
+        - slippage
+        - takeProfit
+        - stopLoss
+        - reduceOnly
+        - postOnly
+        - fee
+        - blockNumber
+        - txHash
+      properties:
+        orderId:
+          $ref: "#/components/schemas/Id"
+          description: On-chain order ID.
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+          description: Subaccount address that placed the order.
+        side:
+          $ref: "#/components/schemas/OrderSide"
+        type:
+          $ref: "#/components/schemas/OrderType"
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Order creation timestamp in milliseconds.
+        price:
+          type:
+            - string
+            - "null"
+          format: decimal
+          description: Limit price. `null` for MARKET orders.
+          example: "2019.63"
+        qty:
+          type: string
+          format: decimal
+          description: Order quantity in base asset.
+          example: "0.01"
+        filledQty:
+          type: string
+          format: decimal
+          description: Filled quantity in base asset.
+          example: "0.01"
+        remainingQty:
+          type: string
+          format: decimal
+          description: Unfilled quantity in base asset. `"0"` when fully filled.
+          example: "0.00"
+        leverage:
+          type: string
+          format: decimal
+          description: Leverage used for the order.
+          example: "10"
+        slippage:
+          type:
+            - string
+            - "null"
+          format: decimal
+          description: Slippage tolerance for MARKET orders.
+          example: "0.00"
+        takeProfit:
+          type:
+            - string
+            - "null"
+          format: decimal
+          description: Take-profit price if set.
+        stopLoss:
+          type:
+            - string
+            - "null"
+          format: decimal
+          description: Stop-loss price if set.
+        reduceOnly:
+          type: boolean
+          description: Whether the order is reduce-only.
+          example: false
+        postOnly:
+          type: boolean
+          description: Whether the order is post-only (maker-only).
+          example: false
+        fee:
+          type: string
+          format: decimal
+          description: Total fee charged for this order.
+          example: "0.002022"
+        blockNumber:
+          type: integer
+          format: int64
+          description: Block number at which the order was submitted on-chain.
+          example: 8996440
+        txHash:
+          $ref: "#/components/schemas/EvmTxHash"
+        cancelReason:
+          type: string
+          description: Reason why the order was canceled, if applicable.
+          example: None
+        cancelBlockNumber:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Block number at which the order was canceled, if applicable.
+    FundingPayment:
+      type: object
+      description: A historical perpetual funding payment record.
+      required:
+        - symbol
+        - time
+        - subaccount
+        - payment
+        - fundingRate
+        - positionSize
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Unix timestamp in milliseconds when the funding was settled.
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+          description: The subaccount address that received or paid the funding.
+        payment:
+          type: string
+          format: decimal
+          description: >-
+            Funding payment amount. Negative means the subaccount paid; positive
+            means it received.
+          example: "-0.5401"
+        fundingRate:
+          type: string
+          format: decimal
+          description: The funding rate applied at settlement.
+          example: "0.0001"
+        positionSize:
+          type: string
+          format: decimal
+          description: The notional position size at the time of settlement.
+          example: "5401"
+    SpotOrder:
+      type: object
+      description: A spot order record.
+      required:
+        - orderId
+        - symbol
+        - time
+        - subaccount
+        - side
+        - type
+        - status
+        - qty
+        - remainingQty
+        - quoteQty
+        - remainingQuoteQty
+        - fee
+        - postOnly
+        - reduceOnly
+        - frozen
+        - blockNumber
+        - txHash
+      properties:
+        orderId:
+          $ref: "#/components/schemas/Id"
+          description: On-chain order ID. Scoped to (symbol, side) by the validator.
+        symbol:
+          $ref: "#/components/schemas/SpotSymbol"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Order creation timestamp in milliseconds.
+        subaccount:
+          $ref: "#/components/schemas/EvmAddress"
+          description: Subaccount address that placed the order.
+        side:
+          $ref: "#/components/schemas/OrderSide"
+        type:
+          $ref: "#/components/schemas/OrderType"
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        price:
+          type:
+            - string
+            - "null"
+          format: decimal
+          description: Limit price. `null` for MARKET orders.
+          example: "1989.77"
+        slippage:
+          type:
+            - string
+            - "null"
+          format: decimal
+          description: Slippage tolerance. `null` for LIMIT orders.
+          example: "0.01"
+        qty:
+          type: string
+          format: decimal
+          description: Base asset quantity ordered.
+          example: "0.01"
+        remainingQty:
+          type: string
+          format: decimal
+          description: Unfilled base asset quantity. `"0"` when fully filled.
+          example: "0.00"
+        quoteQty:
+          type: string
+          format: decimal
+          description: Quote asset quantity.
+          example: "19.8977"
+        remainingQuoteQty:
+          type: string
+          format: decimal
+          description: Unfilled quote asset quantity.
+          example: "0.00"
+        fee:
+          type: string
+          format: decimal
+          description: Total fee charged. Always in quote asset.
+          example: "0.001989"
+        postOnly:
+          type: boolean
+          description: Whether the order is post-only (maker-only).
+          example: false
+        reduceOnly:
+          type: boolean
+          description: Whether the order can only reduce an open position.
+          example: false
+        frozen:
+          type: boolean
+          description: Whether the order is frozen by the protocol.
+          example: false
+        blockNumber:
+          type: integer
+          format: int64
+          description: Block number at which the order was submitted on-chain.
+          example: 8689320
+        txHash:
+          $ref: "#/components/schemas/EvmTxHash"
+          description: On-chain transaction hash.
+    BalanceChangeType:
+      type: string
+      description: >
+        The cause of a balance change.
+
+        | Value | Description | |---|---| | `DEPOSIT` | Cross-chain deposit into
+        the subaccount. | | `WITHDRAW` | Cross-chain withdrawal from the
+        subaccount. | | `BORROW` | Cross-chain borrow from the lending market. |
+        | `REPAY` | Cross-chain loan repayment to the lending market. | |
+        `TRANSFER` | Internal transfer between subaccounts within DeepX. |
+      enum:
+        - DEPOSIT
+        - WITHDRAW
+        - BORROW
+        - REPAY
+        - TRANSFER
+    SpotMarket:
+      type: object
+      description: A spot market's trading rules.
+      required:
+        - symbol
+        - marketId
+        - type
+        - status
+        - baseAsset
+        - quoteAsset
+        - makerFeeRate
+        - takerFeeRate
+        - orderTypes
+        - tickSize
+        - minQty
+        - stepSize
+        - minNotional
+        - liquidatorFee
+        - liquidationInsuranceFee
+        - tradingInsuranceFee
+      properties:
+        symbol:
+          $ref: "#/components/schemas/SpotSymbol"
+        marketId:
+          type: string
+          description: The internal validator market ID.
+          example: "0x7cf219b32b35000e20677b2c149c92b785bd8417c3c0834376a8a1df31734d6a"
+        type:
+          $ref: "#/components/schemas/MarketType"
+        status:
+          $ref: "#/components/schemas/MarketStatus"
+        baseAsset:
+          type: string
+          example: BTC
+        quoteAsset:
+          type: string
+          example: USDC
+        makerFeeRate:
+          type: string
+          format: decimal
+          description: Maker fee rate as a decimal (e.g. 0.01% = 0.0001).
+          example: "0.0001"
+        takerFeeRate:
+          type: string
+          format: decimal
+          description: Taker fee rate as a decimal (e.g. 0.025% = 0.00025).
+          example: "0.00025"
+        orderTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderType"
+          example:
+            - LIMIT
+            - MARKET
+        tickSize:
+          type: string
+          format: decimal
+          description: The minimum price increment.
+          example: "0.1"
+        minQty:
+          type: string
+          format: decimal
+          description: The minimum allowed order quantity in base asset.
+          example: "0.00001"
+        stepSize:
+          type: string
+          format: decimal
+          description: The minimum base asset quantity increment for orders.
+          example: "0.00001"
+        minNotional:
+          type: string
+          format: decimal
+          description: The minimum order value in quote asset.
+          example: "5.0"
+        liquidatorFee:
+          type: string
+          format: decimal
+          example: "0.0125"
+        liquidationInsuranceFee:
+          type: string
+          format: decimal
+          example: "0.0125"
+        tradingInsuranceFee:
+          type: string
+          format: decimal
+          example: "0.0"
+    CandleList:
+      type: array
+      description: An array of generic OHLCV candle tuples.
+      example:
+        - - 1774297800000
+          - "70796.4"
+          - "70980.1"
+          - "70790.7"
+          - "70925.3"
+          - "70.67640"
+          - "5010987.37686"
+          - 308
+          - "35.33820"
+          - "2505493.68843"
+      items:
+        type: array
+        minItems: 10
+        maxItems: 10
+        prefixItems:
+          - $ref: "#/components/schemas/Timestamp"
+            description: Open time (ms)
+          - type: string
+            format: decimal
+            description: Open price
+          - type: string
+            format: decimal
+            description: High price
+          - type: string
+            format: decimal
+            description: Low price
+          - type: string
+            format: decimal
+            description: Close price
+          - type: string
+            format: decimal
+            description: Base asset volume
+          - type: string
+            format: decimal
+            description: Quote asset volume
+          - type: integer
+            format: int64
+            description: Number of trades
+          - type: string
+            format: decimal
+            description: Taker buy base asset volume
+          - type: string
+            format: decimal
+            description: Taker buy quote asset volume
+    OrderbookTuple:
+      type: array
+      description: A [Price, Qty] string tuple.
+      minItems: 2
+      maxItems: 2
+      prefixItems:
+        - type: string
+          format: decimal
+          description: Price level
+        - type: string
+          format: decimal
+          description: Aggregate quantity at this price level
+      items: false
+      example:
+        - "4.01"
+        - "431"
+    Orderbook:
+      type: object
+      description: A snapshot of the current market orderbook.
+      required:
+        - lastUpdateId
+        - engineTime
+        - serverTime
+        - bids
+        - asks
+      properties:
+        lastUpdateId:
+          $ref: "#/components/schemas/Id"
+          description: >-
+            The sequence ID of the last matching engine event that altered this
+            book. Used to perfectly sync with Websocket deltas.
+        engineTime:
+          $ref: "#/components/schemas/Timestamp"
+          description: >-
+            The millisecond timestamp when the matching engine last updated this
+            orderbook.
+        serverTime:
+          $ref: "#/components/schemas/Timestamp"
+          description: The millisecond timestamp when the REST API compiled this response.
+        bids:
+          type: array
+          description: List of open buy orders. Best bids (highest price) are sorted first.
+          items:
+            $ref: "#/components/schemas/OrderbookTuple"
+        asks:
+          type: array
+          description: List of open sell orders. Best asks (lowest price) are sorted first.
+          items:
+            $ref: "#/components/schemas/OrderbookTuple"
+    PerpMarket:
+      type: object
+      description: A perpetual contract market's trading rules.
+      required:
+        - symbol
+        - marketId
+        - type
+        - status
+        - baseAsset
+        - quoteAsset
+        - makerFeeRate
+        - takerFeeRate
+        - orderTypes
+        - tickSize
+        - minQty
+        - stepSize
+        - minNotional
+        - maxOpenOrders
+        - initialMarginRatio
+        - maintenanceMarginRatio
+        - maxDeviationRatio
+        - liquidSpreadRatio
+        - baseInterestRate
+        - impactMarginValue
+        - fundingRateChangeCap
+        - fundingRateChangeFloor
+        - clampUpperBound
+        - clampLowerBound
+        - liquidationDurationBlocks
+        - bucketSlippageStep
+        - bucketSlippageLimit
+        - liquidityDustValue
+        - liquidatorShareFeeRate
+        - insuranceFundShareFeeRate
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        marketId:
+          type: integer
+          format: int32
+          description: The internal validator market ID.
+          example: 3
+        type:
+          $ref: "#/components/schemas/MarketType"
+        status:
+          $ref: "#/components/schemas/MarketStatus"
+        baseAsset:
+          type: string
+          example: ETH
+        quoteAsset:
+          type: string
+          example: USDC
+        makerFeeRate:
+          type: string
+          format: decimal
+          description: Maker fee rate as a decimal (e.g. -0.01% = -0.0001).
+          example: "-0.0001"
+        takerFeeRate:
+          type: string
+          format: decimal
+          description: Taker fee rate as a decimal (e.g. 0.01% = 0.0001).
+          example: "0.0001"
+        orderTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderType"
+          example:
+            - LIMIT
+            - MARKET
+        tickSize:
+          type: string
+          format: decimal
+          description: The minimum price increment.
+          example: "0.01"
+        minQty:
+          type: string
+          format: decimal
+          description: The minimum allowed order quantity in base asset.
+          example: "0.001"
+        stepSize:
+          type: string
+          format: decimal
+          description: The minimum base asset quantity increment for orders.
+          example: "0.001"
+        minNotional:
+          type: string
+          format: decimal
+          description: The minimum order value in quote asset.
+          example: "5.0"
+        maxOpenOrders:
+          type: integer
+          format: int32
+          description: Maximum number of open orders an account can have.
+          example: 128
+        initialMarginRatio:
+          type: string
+          format: decimal
+          description: Initial margin requirement decimal (e.g. 4% = 0.04).
+          example: "0.04"
+        maintenanceMarginRatio:
+          type: string
+          format: decimal
+          description: Maintenance margin requirement decimal (e.g. 2% = 0.02).
+          example: "0.02"
+        maxDeviationRatio:
+          type: string
+          format: decimal
+          description: Maximum allowed price deviation from oracle/index (e.g. 50% = 0.50).
+          example: "0.50"
+        liquidSpreadRatio:
+          type: string
+          format: decimal
+          description: Spread penalty during liquidations (e.g. 50% = 0.50).
+          example: "0.50"
+        baseInterestRate:
+          type: string
+          format: decimal
+          description: Baseline interest rate decimal.
+          example: "0.0001"
+        impactMarginValue:
+          type: string
+          format: decimal
+          description: >-
+            Margin value used to calculate the impact of a trade on the
+            orderbook.
+          example: "100"
+        fundingRateChangeCap:
+          type: string
+          format: decimal
+          description: Maximum positive funding rate adjustment per epoch.
+          example: "0.002"
+        fundingRateChangeFloor:
+          type: string
+          format: decimal
+          description: Maximum negative funding rate adjustment per epoch.
+          example: "-0.002"
+        clampUpperBound:
+          type: string
+          format: decimal
+          description: Max absolute funding rate bound.
+          example: "0.0005"
+        clampLowerBound:
+          type: string
+          format: decimal
+          description: Min absolute funding rate bound.
+          example: "-0.0005"
+        liquidationDurationBlocks:
+          type: integer
+          format: int32
+          description: Liquidation duration in blocks.
+          example: 100
+        bucketSlippageStep:
+          type: string
+          format: decimal
+          description: Slippage step per liquidation bucket.
+          example: "0.10"
+        bucketSlippageLimit:
+          type: string
+          format: decimal
+          description: Maximum allowed slippage across all buckets.
+          example: "1.00"
+        liquidityDustValue:
+          type: string
+          format: decimal
+          description: Minimum value in quote asset considered as dust.
+          example: "1.0"
+        liquidatorShareFeeRate:
+          type: string
+          format: decimal
+          description: Fee rate paid to the liquidator.
+          example: "0.005"
+        insuranceFundShareFeeRate:
+          type: string
+          format: decimal
+          description: Fee rate paid to the insurance fund.
+          example: "0.005"
+    OpenInterest:
+      type: object
+      description: A real-time snapshot of a perpetual market's open interest.
+      required:
+        - symbol
+        - time
+        - openInterest
+        - openInterestValue
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Snapshot timestamp.
+        openInterest:
+          type: string
+          format: decimal
+          description: Open interest in base asset.
+          example: "42.12"
+        openInterestValue:
+          type: string
+          format: decimal
+          description: Open interest value in USD.
+          example: "210600.00"
+    OpenInterestHistory:
+      type: array
+      description: An array of historical open interest snapshots.
+      items:
+        $ref: "#/components/schemas/OpenInterest"
+    FundingRate:
+      type: object
+      description: A real-time snapshot of a perpetual market's funding rate.
+      required:
+        - symbol
+        - time
+        - fundingRate
+      properties:
+        symbol:
+          $ref: "#/components/schemas/PerpSymbol"
+        time:
+          $ref: "#/components/schemas/Timestamp"
+          description: Snapshot timestamp.
+        fundingRate:
+          type: string
+          format: decimal
+          description: The current funding rate as a decimal (e.g. 0.01% = 0.0001).
+          example: "0.0000125"
+        avgFundingRate24h:
+          type: string
+          format: decimal
+          description: The average funding rate over the last 24 hours as a decimal.
+          example: "0.000204"
+    FundingRateHistory:
+      type: array
+      description: >
+        An array of Funding Rate data points over time.  Each data point is a
+        tuple: [timestamp, fundingRate].
+      items:
+        type: array
+        minItems: 2
+        maxItems: 2
+        prefixItems:
+          - $ref: "#/components/schemas/Timestamp"
+            description: Snapshot time (ms).
+          - type: string
+            format: decimal
+            description: The funding rate as a decimal (e.g. 0.01% = 0.0001).
+            example: "0.0001"
+    LendingMarket:
+      type: object
+      description: >-
+        Static parameters for a lending asset, including margin weights and
+        interest rate configuration.
+      required:
+        - asset
+        - marginParameters
+        - interestRateModel
+      properties:
+        asset:
+          type: string
+          description: The base asset symbol.
+          example: USDC
+        marginParameters:
+          type: object
+          required:
+            - initialAssetWeight
+            - maintenanceAssetWeight
+            - initialBorrowWeight
+            - maintenanceBorrowWeight
+            - supplyCap
+            - borrowCap
+          properties:
+            initialAssetWeight:
+              type: string
+              format: decimal
+              description: Initial Asset Weight (IAW).
+              example: "0.9"
+            maintenanceAssetWeight:
+              type: string
+              format: decimal
+              description: Maintenance Asset Weight (MAW).
+              example: "0.95"
+            initialBorrowWeight:
+              type: string
+              format: decimal
+              description: Initial Borrow Weight (IBW).
+              example: "1.1"
+            maintenanceBorrowWeight:
+              type: string
+              format: decimal
+              description: Maintenance Borrow Weight (MBW).
+              example: "1.05"
+            supplyCap:
+              type: string
+              format: decimal
+              description: Maximum aggregate amount users can deposit.
+              example: "5000000"
+            borrowCap:
+              type: string
+              format: decimal
+              description: Maximum aggregate amount users can borrow.
+              example: "5000000"
+        interestRateModel:
+          type: object
+          required:
+            - minBorrowRate
+            - maxBorrowRate
+            - reserveFactor
+            - kinks
+          properties:
+            minBorrowRate:
+              type: string
+              format: decimal
+              description: Minimum borrow interest rate ($R_\text{min}$).
+              example: "0.0"
+            maxBorrowRate:
+              type: string
+              format: decimal
+              description: >-
+                Maximum borrow interest rate at 100% utilization
+                ($R_\text{max}$).
+              example: "1.5"
+            reserveFactor:
+              type: string
+              format: decimal
+              description: >-
+                Percentage of interest paid by borrowers allocated to the
+                protocol ($\rho$).
+              example: "0.1"
+            kinks:
+              type: array
+              minItems: 1
+              maxItems: 5
+              description: Multi-linear model kinks (up to five).
+              example:
+                - utilization: "0.80"
+                  rate: "0.06"
+                - utilization: "0.95"
+                  rate: "0.35"
+                - utilization: "0.99"
+                  rate: "0.70"
+              items:
+                type: object
+                required:
+                  - utilization
+                  - rate
+                properties:
+                  utilization:
+                    type: string
+                    format: decimal
+                  rate:
+                    type: string
+                    format: decimal
+    LendingMarketStatus:
+      type: object
+      description: Real-time market data for a lending asset.
+      required:
+        - asset
+        - time
+        - indexPrice
+        - totalSupplied
+        - totalBorrowed
+        - supplyApr
+        - borrowApr
+      properties:
+        asset:
+          type: string
+          description: The base asset symbol.
+          example: USDC
+        time:
+          $ref: "#/components/schemas/Timestamp"
+        indexPrice:
+          type: string
+          format: decimal
+          description: The current index price of the asset.
+          example: "1.0"
+        totalSupplied:
+          type: string
+          format: decimal
+          description: The total amount of the asset supplied to the pool.
+          example: "1000000.0"
+        totalBorrowed:
+          type: string
+          format: decimal
+          description: The total amount of the asset borrowed from the pool.
+          example: "500000.0"
+        supplyApr:
+          type: string
+          format: decimal
+          description: The current annualized yield for suppliers.
+          example: "0.04"
+        borrowApr:
+          type: string
+          format: decimal
+          description: The current annualized interest rate for borrowers.
+          example: "0.055"
+    LendingMarketStatusList:
+      type: array
+      description: A list of active lending market status snapshots.
+      items:
+        $ref: "#/components/schemas/LendingMarketStatus"
+    LendingMarketStatusHistory:
+      type: array
+      description: An array of historical lending market status snapshots.
+      items:
+        $ref: "#/components/schemas/LendingMarketStatus"
+    ExtrinsicHash:
+      type: string
+      pattern: ^0x[a-fA-F0-9]{64}$
+      description: An on-chain transaction hash in 0x-prefixed hex format (32 bytes).
+      example: "0x9b7ddd4fd0f97940005418084c0ed83f82605294bc16d2be34f9c8e2c03837e1"
+  responses:
+    TooManyRequests:
+      description: Too Many Requests. The client breached the designated rate limit weight.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            code: 42901
+            msg: Rate limit exceeded. Please wait 5 seconds before retrying.
+    BadRequest:
+      description: Bad Request. The request failed structural validation or business logic.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            code: 40001
+            msg: "Invalid parameter: 'limit' cannot exceed 1000."
+            param: limit
+    NotFound:
+      description: Not Found. The requested resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            code: 40401
+            msg: Market symbol does not exist.
+            param: symbol
+  parameters:
+    PerpSymbolFilter:
+      name: symbol
+      in: query
+      required: false
+      description: >-
+        Filter by perpetual market symbol. If omitted, results are returned for
+        all symbols.
+      schema:
+        $ref: "#/components/schemas/PerpSymbol"
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of records to return.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 500
+        default: 1
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: >-
+        Cursor for pagination. Returns records with an ID less than (older than)
+        this cursor value.
+      schema:
+        $ref: "#/components/schemas/Id"
+    StartTime:
+      name: startTime
+      in: query
+      required: false
+      description: Filter records at or after this timestamp (milliseconds).
+      schema:
+        $ref: "#/components/schemas/Timestamp"
+    EndTime:
+      name: endTime
+      in: query
+      required: false
+      description: Filter records at or before this timestamp (milliseconds).
+      schema:
+        $ref: "#/components/schemas/Timestamp"
+    SpotSymbolFilter:
+      name: symbol
+      in: query
+      required: false
+      description: >-
+        Filter by spot market symbol. If omitted, results are returned for all
+        symbols.
+      schema:
+        $ref: "#/components/schemas/SpotSymbol"
+    SpotSymbol:
+      name: symbol
+      in: path
+      required: true
+      description: The symbol of the spot market.
+      schema:
+        $ref: "#/components/schemas/SpotSymbol"
+    Interval:
+      name: interval
+      in: query
+      required: false
+      description: The interval (e.g., 1m, 1h, 1d).
+      schema:
+        type: string
+        enum:
+          - 1m
+          - 3m
+          - 5m
+          - 15m
+          - 30m
+          - 1h
+          - 2h
+          - 4h
+          - 8h
+          - 12h
+          - 1d
+          - 3d
+          - 1w
+          - 1M
+        default: 1d
+    MergeLevel:
+      name: mergeLevel
+      in: query
+      required: false
+      description: >-
+        The level of price aggregation for the orderbook. `0` means no
+        aggregation (uses the market's raw tick size). `1` aggregates by 10x the
+        tick size, `2` by 100x, and so forth. Defaults to `0`.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        maximum: 3
+        default: 0
+        example: 0
+    PerpSymbol:
+      name: symbol
+      in: path
+      required: true
+      description: The symbol of the perpetual market.
+      schema:
+        $ref: "#/components/schemas/PerpSymbol"
+    LendingAsset:
+      name: asset
+      in: path
+      required: true
+      description: The asset symbol (e.g., ETH, USDC).
+      schema:
+        $ref: "#/components/schemas/LendingAsset"

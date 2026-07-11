@@ -1,0 +1,11 @@
+{
+  "title": "Spot Markets",
+  "description": "Public market data for Spot pairs (tickers, depth, trades).",
+  "pages": [
+    "listSpotMarkets",
+    "getSpotMarket",
+    "getSpotCandles",
+    "getMarketSpotTrades",
+    "getSpotOrderbook"
+  ]
+}

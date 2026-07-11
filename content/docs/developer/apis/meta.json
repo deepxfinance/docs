@@ -1,7 +1,10 @@
 {
   "title": "APIs",
   "pages": [
-    "..."
+    "system",
+    "account",
+    "spot-markets",
+    "perp-markets",
+    "lending-markets"
   ]
 }
-    

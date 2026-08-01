@@ -55,7 +55,7 @@ Send the same `params` used to subscribe, with `method` set to `unsubscribe`.
 
 The server sends a ping frame every 20 seconds. The client **must** respond within 10 seconds or the connection is terminated.
 
-```jsonc
+```json
 // Server → Client
 { "method": "ping" }
 
@@ -65,7 +65,7 @@ The server sends a ping frame every 20 seconds. The client **must** respond with
 
 ## 4. List Active Subscriptions
 
-```jsonc
+```json
 // Request
 { "method": "list", "id": "req-3" }
 
@@ -93,8 +93,8 @@ The payload follows `ApiError` (`code`, `msg`, optional `param`).
   "channel": "error",
   "data": {
     "id": "req-1",
-    "code": 40401,
-    "msg": "MARKET_NOT_FOUND"
+    "code": 10014,
+    "msg": "The provided subaccount or wallet address is not valid."
   }
 }
 ```
@@ -103,8 +103,8 @@ The payload follows `ApiError` (`code`, `msg`, optional `param`).
 
 | Code | Message | Description |
 |---|---|---|
-| `40001` | `INVALID_PARAMETER` | A required parameter is missing or has an invalid value. |
-| `40003` | `INVALID_ADDRESS` | The provided `subaccount` or `wallet` address is not a valid Ethereum address. |
-| `40401` | `MARKET_NOT_FOUND` | The `symbol` or `asset` provided does not correspond to an active market. |
-| `40402` | `CHANNEL_NOT_FOUND` | The `channel` name is not recognized. |
-| `42901` | `RATE_LIMIT_EXCEEDED` | Subscription request rate has been exceeded. |
+| `10001` | `INVALID_PARAMETER` | A required parameter is missing or has an invalid value. |
+| `10007` | `MARKET_NOT_FOUND` | The `symbol` or `asset` provided does not correspond to an active market. |
+| `10010` | `RATE_LIMIT_EXCEEDED` | Subscription request rate has been exceeded. |
+| `10014` | `INVALID_ADDRESS` | The provided `subaccount` or `wallet` address is not a valid Ethereum address. |
+| `10015` | `CHANNEL_NOT_FOUND` | The `channel` name is not recognized. |

@@ -51,7 +51,7 @@ Full L2 snapshot pushed every block (~70ms). Self-healing — no local state man
 | Field | Type | Description |
 |---|---|---|
 | `symbol` | string | Market symbol |
-| `lastUpdateId` | integer | Sequence ID of the last matching engine event for this book |
+| `lastUpdateId` | int64 | Sequence ID of the last matching engine event for this book |
 | `engineTime` | int64 | Millisecond timestamp when the matching engine last updated the book |
 | `serverTime` | int64 | Millisecond timestamp when this message was compiled |
 | `bids` | `[price, qty][]` | Buy orders; best bid (highest price) first |
@@ -124,7 +124,7 @@ Pushes each new trade execution as it settles on-chain.
 |---|---|---|
 | `id` | string | Unique trade ID |
 | `symbol` | string | Market symbol |
-| `marketId` | integer | Internal validator market ID (perp only) |
+| `marketId` | int32 | Internal validator market ID (perp only) |
 | `time` | int64 | Trade execution timestamp (epoch ms) |
 | `price` | string | Execution price |
 | `qty` | string | Base asset quantity |
@@ -164,8 +164,8 @@ Aggregated 24h market statistics.
   "data": {
     "symbol": "ETH-USDC",
     "lastPrice": "2034.75",
-    "priceChange1h": "-0.44",
-    "priceChange24h": "2.30",
+    "priceChange1h": "-0.0044",
+    "priceChange24h": "0.023",
     "volume24h": "382948.00",
     "tradeCount24h": 6086,
     "time": 1713825891591
@@ -177,19 +177,21 @@ Aggregated 24h market statistics.
 |---|---|---|
 | `symbol` | string | Market symbol |
 | `lastPrice` | string | Latest trade price |
-| `priceChange1h` | string | % price change over the last 1 hour |
-| `priceChange24h` | string | % price change over the last 24 hours |
+| `priceChange1h` | string | Decimal price-change ratio over the last 1 hour (`0.012` means `1.2%`) |
+| `priceChange24h` | string | Decimal price-change ratio over the last 24 hours (`0.023` means `2.3%`) |
 | `volume24h` | string | Total traded volume (in quote asset) over the last 24 hours |
-| `tradeCount24h` | integer | Number of trades over the last 24 hours |
+| `tradeCount24h` | int64 | Number of trades over the last 24 hours |
 | `time` | int64 | Snapshot timestamp (epoch ms) |
 
 **Update cadence**: Every block (~70ms)
+
+See [`Ticker`](../../schemas/Ticker.yaml) for the full field reference.
 
 ---
 
 ## 4. Perpetual Prices (`perp@prices`)
 
-Real-time index price and mark price for a perpetual market. Index price is the external reference price (formerly `oracle_price`).
+Real-time index price and mark price for a perpetual market.
 
 **Channel**: `perp@prices`
 
@@ -221,7 +223,7 @@ Real-time index price and mark price for a perpetual market. Index price is the 
 | Field | Type | Description |
 |---|---|---|
 | `symbol` | string | Perpetual market symbol |
-| `indexPrice` | string | External reference price (aggregated from spot oracles) |
+| `indexPrice` | string | External reference price |
 | `markPrice` | string | Fair price used for unrealized PnL and liquidations |
 | `time` | int64 | Snapshot timestamp (epoch ms) |
 

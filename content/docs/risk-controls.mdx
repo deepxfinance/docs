@@ -1,0 +1,27 @@
+---
+title: Risk Controls
+---
+
+DeepX uses risk controls to limit the effect of concentrated lending pools and large positions on initial margin.
+
+## Concentration Asset Discount (CAD)
+
+[Concentration Asset Discount (CAD)](/glossary#concentration-asset-discount-cad) reduces the [Initial Asset Weight (IAW)](/glossary#initial-asset-weight-iaw) of an asset for every account when deposits in its lending pool become concentrated.
+
+The CAD threshold is a pool's Supply Cap multiplied by its CAD value. Above this threshold, CAD reduces IAW proportionally as total deposits increase. CAD does not affect MAW, IBW, or MBW. Because IAW is used for initial margin checks, it does not increase maintenance requirements for existing positions.
+
+## Large Position Penalty
+
+[Large Position Penalty](/glossary#large-position-penalty) adjusts an initial margin weight when the post-action notional value exceeds its threshold.
+
+| Activity | Adjusted Weight | Effect Above Threshold |
+|----------|-----------------|------------------------|
+| Perpetual position | IMR | Increases required initial margin |
+| Lending deposit | IAW | Reduces usable initial collateral |
+| Lending borrow | IBW | Increases initial liability |
+
+The adjustment is continuous rather than a step change at the threshold. It does not affect MMR, MAW, or MBW.
+
+## Interaction
+
+For a lending deposit, the effective IAW is the lower of the CAD-adjusted IAW and the large-position-adjusted IAW.

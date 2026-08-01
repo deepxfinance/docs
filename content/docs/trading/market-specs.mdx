@@ -91,7 +91,7 @@ There are two parameters that control a market's leverage level:
 - [Initial Margin Ratio (IMR)](/glossary/#initial-margin-ratio-imr): The percentage of a new perpetual position's value required as collateral to open the position.
 - [Maintenance Margin Ratio (MMR)](/glossary/#maintenance-margin-ratio-mmr): The minimum percentage of the perpetual position value that must be maintained as collateral to keep the position open.
 
-Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to scale margin requirements based on the size of a trader's position. It increases margin requirements for larger positions and protects the protocol from systemic risk.
+[Large Position Penalty](/glossary#large-position-penalty) increases IMR as a position's post-trade notional value grows. It affects IMR only; MMR does not change. See [Risk Controls](/risk-controls#large-position-penalty) for details.
 
 ### Perpetual Market Specifications
 
@@ -107,7 +107,7 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <th>Step Size</th>
         <th>IMR</th>
         <th>MMR</th>
-        <th>IMF Factor</th>
+        <th>IMR Penalty Threshold</th>
         <th>Liquidator Fee</th>
         <th>Liquidation Insurance Fee</th>
         <th>Trading Insurance Fee</th>
@@ -124,8 +124,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>0.0001 BTC</td>
         <td>4%</td>
         <td>2%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$50,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -140,8 +140,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>0.001 ETH</td>
         <td>4%</td>
         <td>2%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$50,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -156,8 +156,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>0.01 SOL</td>
         <td>4%</td>
         <td>2%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$50,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -172,8 +172,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>1 TRX</td>
         <td>8%</td>
         <td>4%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$30,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -188,8 +188,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>1 DOGE</td>
         <td>8%</td>
         <td>4%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$30,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -204,8 +204,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>0.01 HYPE</td>
         <td>8%</td>
         <td>4%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$30,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -220,8 +220,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>0.001 ZEC</td>
         <td>8%</td>
         <td>4%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$30,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>
@@ -236,8 +236,8 @@ Initial Margin Fraction (IMF) factor is a dynamic risk control mechanism used to
         <td>0.1 SUI</td>
         <td>8%</td>
         <td>4%</td>
-        <td>0.0002</td>
-        <td>0.5%</td>
+        <td>$30,000</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
         <td>5%</td>

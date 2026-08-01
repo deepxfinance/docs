@@ -12,6 +12,8 @@ When users deposit assets into the protocol, they automatically become part of t
 
 Every asset within the protocol is subject to a Supply Cap, which represents the maximum aggregate amount that all users are permitted to deposit. This cap is particularly crucial for less liquid or more volatile assets. By setting this limit, DeepX effectively reduces concentration risk and prevents a sudden surge in deposits and withdrawals from depleting the pool's assets.
 
+Each lending pool uses a [Concentration Asset Discount (CAD)](/glossary#concentration-asset-discount-cad). When total deposits exceed its CAD threshold, the IAW of that asset is reduced proportionally for all accounts. See [Risk Controls](/risk-controls#concentration-asset-discount-cad) for details.
+
 ## How Borrowing Works
 
 To borrow assets, users must first deposit other assets to serve as collateral. The amount users are allowed to borrow is determined by the **Initial Asset Weight (IAW)** of the deposited asset and the **Initial Borrow Weight (IBW)** of the borrowed asset, where IAW is less than or equal to 100% and IBW is greater than or equal to 100%. 
@@ -19,6 +21,8 @@ To borrow assets, users must first deposit other assets to serve as collateral. 
 After borrowing, users need to maintain their loans. The maximum amount of loan users can maintain is determined by the **Maintenance Asset Weight (MAW)** of the deposited asset and the **Maintenance Borrow Weight (MBW)** of the borrowed asset, where MAW is less than or equal to 100% and MBW is greater than or equal to 100%.
 
 Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling higher borrowing power. Volatile assets, by contrast, have lower IAWs and MAWs. Likewise, assets with lower volatility have lower IBWs and MBWs, allowing users to borrow them at a higher percentage against collateralized assets. Conversely, volatile assets generally have higher IBWs and MBWs. 
+
+[Large Position Penalty](/glossary#large-position-penalty) adjusts IAW for large deposits and IBW for large borrows, based on post-action notional value. See [Risk Controls](/risk-controls#large-position-penalty) for details.
 
 ## Margin Parameters
 
@@ -33,6 +37,9 @@ Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling hi
         <th>MBW</th>
         <th>Supply Cap</th>
         <th>Borrow Cap</th>
+        <th>CAD</th>
+        <th>IAW Penalty Threshold</th>
+        <th>IBW Penalty Threshold</th>
       </tr>
     </thead>
     <tbody>
@@ -44,6 +51,9 @@ Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling hi
         <td>100%</td>
         <td>5,000,000</td>
         <td>5,000,000</td>
+        <td>0.7</td>
+        <td>\$100,000</td>
+        <td>\$100,000</td>
       </tr>
 
       <tr>
@@ -54,6 +64,9 @@ Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling hi
         <td>105%</td>
         <td>100</td>
         <td>100</td>
+        <td>0.7</td>
+        <td>\$50,000</td>
+        <td>\$50,000</td>
       </tr>
 
       <tr>
@@ -64,6 +77,9 @@ Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling hi
         <td>105%</td>
         <td>1,000</td>
         <td>1,000</td>
+        <td>0.7</td>
+        <td>\$50,000</td>
+        <td>\$50,000</td>
       </tr>
 
       <tr>
@@ -74,8 +90,10 @@ Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling hi
         <td>105%</td>
         <td>10,000</td>
         <td>10,000</td>
+        <td>0.7</td>
+        <td>\$50,000</td>
+        <td>\$50,000</td>
       </tr>
     </tbody>
   </table>
 </div>
-

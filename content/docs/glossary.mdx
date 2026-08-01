@@ -143,3 +143,14 @@ The Position Size of a perpetual position represents the amount of [Base Asset](
 
 #### Unrealized Profit and Loss (Unrealized PnL)
 The Unrealized PnL of a perpetual position represents the current gain or loss of an open position based on the [Mark Price](/glossary#mark-price), before the position is closed or settled.
+
+## Risk Controls
+
+#### Concentration Asset Discount (CAD)
+CAD is a lending-pool risk control that reduces an asset's [Initial Asset Weight (IAW)](/glossary#initial-asset-weight-iaw) for every account when total deposits exceed the pool's [CAD Threshold](#cad-threshold). It does not affect MAW, IBW, or MBW.
+
+#### CAD Threshold
+The total-deposit level at which a lending pool's [Concentration Asset Discount (CAD)](/glossary#concentration-asset-discount-cad) begins. It is the pool's Supply Cap multiplied by its CAD value.
+
+#### Large Position Penalty
+A risk control that adjusts initial margin weights when a position, deposit, or borrow exceeds its market's threshold, based on the post-action notional value. It increases IMR for perpetual positions and IBW for borrows, and reduces IAW for deposits. It does not affect MMR, MAW, or MBW.

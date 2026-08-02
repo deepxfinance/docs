@@ -1,0 +1,17 @@
+---
+title: Transaction Quota
+---
+
+DeepX uses transaction quota instead of gas fees for normal trading actions.
+
+## Wallet-Level Quota
+
+Quota belongs to your wallet and is shared by all of its subaccounts. A new wallet starts with **10,000** free transactions. Each on-chain transaction, such as placing or canceling an order, uses one quota.
+
+## When Quota Runs Out
+
+When your available quota reaches zero, your wallet can submit one transaction every 10 seconds.
+
+## Earn and Receive More Quota
+
+You earn one free transaction quota for each 1 USDC of cumulative spot and perpetual trading volume across your wallet's subaccounts. DeepX grants earned quota automatically in batches. You can also request a grant from the wallet interface when you want it processed sooner. A grant is asynchronous; your available balance increases after it is confirmed on-chain.

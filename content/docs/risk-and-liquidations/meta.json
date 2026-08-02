@@ -1,0 +1,9 @@
+{
+  "defaultOpen": false,
+  "title": "Risk & Liquidations",
+  "pages": [
+    "risk-controls",
+    "liquidations",
+    "insurance"
+  ]
+}

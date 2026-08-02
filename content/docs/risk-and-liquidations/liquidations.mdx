@@ -10,11 +10,11 @@ Liquidations could happen to an account when its [Total Collateral Value](/gloss
 
 DeepX utilizes a decentralized, gradual liquidation process.
 
-Once a user's Total Collateral Value falls below the Maintenance Margin Requirement, liquidations would be triggered. 
+Once a user's Total Collateral Value falls below the Maintenance Margin Requirement, liquidations would be triggered.
 
 Steps:
 
-1. All open orders are canceled. 
+1. All open orders are canceled.
 2. Liquidators can then iteratively liquidate portions of the account's assets and liabilities over a throttled time window.
 3. If the uniMMR of the liquidated account recovers to above the target uniMMR (e.g., 1.02), the liquidation process will stop. Otherwise, it continues until the account is fully liquidated or the uniMMR recovers.
 4. If the account is fully liquidated but still under collateralized, it will be marked as bad debt and the insurance fund will cover the loss.
@@ -25,6 +25,6 @@ A separate fee, typically set higher than the standard taker fee for the market,
 
 Any participant can run a liquidation bot. There are two different kinds of liquidation.
 1. Liquidation in the order book: Liquidators can submit orders to liquidate the undercollateralized account. The liquidation process will be executed as normal order matching.
-2. Position transfers: Liquidations are executed as position transfers between the liquidatee's account and the liquidator's account, which requires the liquidator to have sufficient collateral deposited. 
+2. Position transfers: Liquidations are executed as position transfers between the liquidatee's account and the liquidator's account, which requires the liquidator to have sufficient collateral deposited.
 
 More details will be provided about how to run a liquidator bot.

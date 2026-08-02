@@ -2,12 +2,11 @@
   "pages": [
     "index",
     "getting-started",
+    "account",
     "security",
     "trading",
     "lend-and-borrow",
-    "risk-controls",
-    "liquidations",
-    "insurance",
+    "risk-and-liquidations",
     "developer",
     "litepaper",
     "glossary"

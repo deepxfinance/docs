@@ -4,12 +4,20 @@ title: Order Types
 
 ## Market Order
 
+Market orders execute immediately against the available order book at the best available prices. Any unfilled quantity is canceled.
+
 ## Limit Order
+
+Limit orders execute only at the price you set or a better price. They remain on the order book until they are filled or canceled.
+
+## Immediate or Cancel (IOC)
+
+IOC orders execute immediately for any available quantity. Any unfilled quantity is canceled, and the order never remains on the order book.
 
 ## Reduce-Only Order
 
+Reduce-only orders can decrease or close an existing perpetual position, but cannot increase it or open a position in the opposite direction.
+
 ## Post-Only Order
 
-## Stop-Market Order
-
-## Stop-Limit Order
+Post-only limit orders add liquidity to the order book. If an order would execute immediately, it is rejected instead of taking existing liquidity.

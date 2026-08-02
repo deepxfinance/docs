@@ -3,6 +3,7 @@
   "pages": [
     "guides",
     "apis",
-    "websocket"
+    "websocket",
+    "protocol"
   ]
 }

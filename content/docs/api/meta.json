@@ -1,0 +1,10 @@
+{
+  "defaultOpen": false,
+  "title": "API Reference",
+  "pages": [
+    "guides",
+    "rest",
+    "websocket",
+    "error-codes"
+  ]
+}

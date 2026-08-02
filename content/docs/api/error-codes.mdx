@@ -1,0 +1,225 @@
+---
+title: Error Codes
+description: API and on-chain error codes generated from the public API contracts.
+---
+
+This page is generated from the public API contracts. Do not edit it manually.
+
+## API Errors
+
+API errors are raised before a request reaches the trading chain.
+
+| Code | Category | Message |
+|---:|---|---|
+| `10001` | VALIDATION | Invalid parameter: &#123;param&#125;. |
+| `10002` | VALIDATION | Request body is not valid JSON. |
+| `10003` | VALIDATION | '&#123;value&#125;' is not a valid value for '&#123;param&#125;'. Allowed: &#123;allowed&#125;. |
+| `10004` | AUTH | Invalid cryptographic signature. |
+| `10005` | AUTH | Signature timestamp is outside the allowed window. |
+| `10006` | AUTH | API key does not exist or has been revoked. |
+| `10007` | NOT_FOUND | Market '&#123;symbol&#125;' does not exist or is not active. |
+| `10008` | NOT_FOUND | Order '&#123;orderId&#125;' not found. |
+| `10009` | NOT_FOUND | Subaccount not found. |
+| `10010` | RATE_LIMIT | Rate limit exceeded. Retry after &#123;retryAfter&#125; seconds. |
+| `10011` | INTERNAL | An unexpected internal error occurred. |
+| `10012` | INTERNAL | Service temporarily unavailable. Please try again later. |
+| `10013` | CONFLICT | The requested operation conflicts with the current state of the resource. |
+| `10014` | VALIDATION | The provided subaccount or wallet address is not valid. |
+| `10015` | NOT_FOUND | Channel '&#123;channel&#125;' does not exist. |
+| `10016` | VALIDATION | Bad request. |
+| `10017` | VALIDATION | Missing required parameter: &#123;param&#125;. |
+| `10018` | AUTH | Unauthorized access. |
+| `10019` | AUTH | Insufficient permissions. |
+| `10020` | NOT_FOUND | Resource not found. |
+
+## On-Chain Errors
+
+On-chain errors identify a transaction that reached the trading chain and reverted. Batch results can report an on-chain error for an individual item.
+
+| Code | Pallet | Message |
+|---|---|---|
+| `19_0` | Subaccount | Subaccount not initialized. |
+| `19_1` | Subaccount | Delegate account is invalid or not authorized for this subaccount. |
+| `19_2` | Subaccount | Subaccount has reached the maximum number of delegate accounts. |
+| `19_3` | Subaccount | OCT (One Click Trading) account not initialized. |
+| `19_4` | Subaccount | OCT account already exists. |
+| `19_5` | Subaccount | User has reached the maximum number of OCT accounts. |
+| `19_6` | Subaccount | Caller is not the owner or an authorized delegate of this subaccount. |
+| `19_7` | Subaccount | Cannot switch spot margin trading mode while open spot orders exist. |
+| `19_8` | Subaccount | Cannot delete subaccount: open positions, orders, or non-zero balances remain. |
+| `19_9` | Subaccount | Subaccount name is already in use by this account. |
+| `19_10` | Subaccount | Invalid account ID. |
+| `19_13` | Subaccount | Subaccount status does not allow this operation (e.g. frozen, liquidating, or closed). |
+| `19_14` | Subaccount | Failed to compute account margin. |
+| `19_15` | Subaccount | Account still meets maintenance margin requirements and is not eligible for liquidation or bankruptcy. |
+| `19_16` | Subaccount | Margin shortage computation failed. |
+| `19_17` | Subaccount | Releasable margin computation failed. |
+| `19_18` | Subaccount | No liquidity bucket found during liquidation. |
+| `19_19` | Subaccount | Batch operation contains an unsupported EVM call type. |
+| `19_20` | Subaccount | ERC20 token transfer within the subaccount failed. |
+| `19_21` | Subaccount | Token swap within the subaccount failed. |
+| `19_22` | Subaccount | Auto-deleveraging (ADL) conditions are not yet met. |
+| `19_25` | Subaccount | Bankruptcy conditions are not yet met. |
+| `19_26` | Subaccount | Invalid Insurance Fund manager address. |
+| `19_27` | Subaccount | Invalid Insurance Fund address. |
+| `19_28` | Subaccount | Invalid bankruptcy request. |
+| `19_29` | Subaccount | Subaccount has open orders. |
+| `19_30` | Subaccount | Configured maximum spot asset type limit is invalid. |
+| `19_31` | Subaccount | Configured maximum perpetual positions limit is invalid. |
+| `20_0` | SpotMarket | Spot market not initialized. |
+| `20_1` | SpotMarket | Spot market for this trading pair already exists. |
+| `20_2` | SpotMarket | Order size or transfer amount is invalid (zero or invalid precision). |
+| `20_4` | SpotMarket | Order maker address does not match on-chain records. |
+| `20_5` | SpotMarket | Order is already inactive (filled, cancelled, or expired). |
+| `20_6` | SpotMarket | Buy order ID does not exist. |
+| `20_7` | SpotMarket | Sell order ID does not exist. |
+| `20_8` | SpotMarket | Buy and sell order prices do not match. |
+| `20_9` | SpotMarket | Slippage parameter is outside the allowed range. |
+| `20_10` | SpotMarket | Order price is invalid (zero, invalid tick size, or outside price limits). |
+| `20_11` | SpotMarket | User has reached the maximum number of pending orders in this market. |
+| `20_12` | SpotMarket | Subaccount not initialized. |
+| `20_13` | SpotMarket | Caller is not the subaccount owner or an authorized delegate. |
+| `20_17` | SpotMarket | Insufficient available balance to place order or transfer funds. |
+| `20_20` | SpotMarket | User has reached the maximum number of active spot orders. |
+| `20_23` | SpotMarket | Order size is below the market minimum order size. |
+| `20_24` | SpotMarket | Price does not comply with the market tick size. |
+| `20_25` | SpotMarket | Quantity does not comply with the market step size. |
+| `20_26` | SpotMarket | Required margin for the spot order exceeds available account margin. |
+| `20_27` | SpotMarket | Post-Only order would immediately match a market order and was rejected. |
+| `20_28` | SpotMarket | Post-Only order would immediately match a limit order and was rejected. |
+| `20_29` | SpotMarket | Reduce-Only order validation failed. |
+| `20_30` | SpotMarket | Failed to fetch borrow liability value. |
+| `20_32` | SpotMarket | Division failed (division by zero or overflow). |
+| `20_33` | SpotMarket | Account status does not allow spot trading (e.g. liquidating or frozen). |
+| `20_34` | SpotMarket | Order notional value is below the market minimum notional. |
+| `20_35` | SpotMarket | Order price is below the minimum allowed price. |
+| `20_36` | SpotMarket | Order price is above the maximum allowed price. |
+| `20_37` | SpotMarket | Invalid limit order price (deviation from oracle or mark price is too large). |
+| `20_38` | SpotMarket | Configured maximum price deviation is invalid. |
+| `20_39` | SpotMarket | Subaccount has reached the maximum number of spot asset types. |
+| `20_40` | SpotMarket | Unsupported spot order type. |
+| `21_4` | Oracle | Node submitting prices is not on the whitelist. |
+| `21_5` | Oracle | Maximum number of supported symbols has been reached. |
+| `21_6` | Oracle | Symbol exceeds the maximum allowed length. |
+| `21_7` | Oracle | Symbol already exists. |
+| `22_0` | PerpMarket | Perpetual market does not exist. |
+| `22_1` | PerpMarket | Market ID is invalid or not registered. |
+| `22_3` | PerpMarket | Caller is not authorized (not a market admin or deployer). |
+| `22_4` | PerpMarket | User has reached the maximum number of active orders in this market. |
+| `22_5` | PerpMarket | Order size is zero. |
+| `22_6` | PerpMarket | Leverage is invalid or exceeds the market allowed range. |
+| `22_8` | PerpMarket | Subaccount not found. |
+| `22_9` | PerpMarket | Order price is above the maximum allowed (relative to current price). |
+| `22_10` | PerpMarket | Order price is below the minimum allowed (relative to current price). |
+| `22_11` | PerpMarket | Market order slippage exceeds the maximum allowed slippage. |
+| `22_13` | PerpMarket | Perpetual order does not exist. |
+| `22_14` | PerpMarket | Perpetual position does not exist. |
+| `22_25` | PerpMarket | Unsupported perpetual order type. |
+| `22_30` | PerpMarket | Account status does not allow this operation (liquidating, frozen, or closed). |
+| `22_31` | PerpMarket | Take-profit price is invalid (incorrect direction or price). |
+| `22_32` | PerpMarket | Stop-loss price is invalid (incorrect direction or price). |
+| `22_35` | PerpMarket | Market or account is in a closing flow; new operations are not accepted. |
+| `22_36` | PerpMarket | Order placement is paused for this market. |
+| `22_39` | PerpMarket | Order size is below the market minimum order size. |
+| `22_40` | PerpMarket | Price does not comply with the market tick size. |
+| `22_41` | PerpMarket | Quantity does not comply with the market step size. |
+| `22_42` | PerpMarket | Reduce-Only order size exceeds the closable position size. |
+| `22_43` | PerpMarket | Reduce-Only order direction matches the existing position. |
+| `22_44` | PerpMarket | Post-Only order would immediately match a market order and was rejected. |
+| `22_45` | PerpMarket | Post-Only order would immediately match a limit order and was rejected. |
+| `22_46` | PerpMarket | Subaccount not initialized. |
+| `22_48` | PerpMarket | Required margin for the perpetual order exceeds available account margin. |
+| `22_49` | PerpMarket | Account still meets maintenance margin requirements and is not eligible for liquidation. |
+| `22_50` | PerpMarket | Invalid base asset amount specified by the liquidator. |
+| `22_51` | PerpMarket | Failed to compute base asset amount from margin shortage. |
+| `22_52` | PerpMarket | Invalid releasable margin percentage. |
+| `22_53` | PerpMarket | Liquidator collateral is insufficient to complete liquidation. |
+| `22_54` | PerpMarket | Failed to prune or adjust base asset amount. |
+| `22_55` | PerpMarket | Liquidation limit price check failed. |
+| `22_56` | PerpMarket | Releasable margin computation failed. |
+| `22_57` | PerpMarket | Margin shortage computation failed. |
+| `22_58` | PerpMarket | No liquidity bucket found during liquidation. |
+| `22_59` | PerpMarket | Order status does not allow this operation (e.g. filled or cancelled). |
+| `22_60` | PerpMarket | Delegate is not authorized to operate on behalf of this subaccount. |
+| `22_61` | PerpMarket | Order notional value is below the market minimum notional. |
+| `22_62` | PerpMarket | Closing price is invalid or outside the allowed range. |
+| `22_63` | PerpMarket | Position is already in a closing flow. |
+| `22_65` | PerpMarket | Computed bankruptcy price is invalid. |
+| `22_66` | PerpMarket | Failed to prune asset amount during bankruptcy. |
+| `22_67` | PerpMarket | ADL ranking list is empty; no counterparty can be selected. |
+| `22_68` | PerpMarket | Invalid limit order price (deviation from current price is too large). |
+| `22_69` | PerpMarket | Subaccount has reached the maximum number of perpetual positions. |
+| `22_70` | PerpMarket | Leverage exceeds the allowed cap for this market or account. |
+| `22_71` | PerpMarket | Invalid liquidation fill amount. |
+| `22_72` | PerpMarket | Incompatible order flags (e.g. Post-Only with IOC). |
+| `22_73` | PerpMarket | Unsupported time-in-force (TIF) type. |
+| `23_0` | InsuranceVault | Stake/unstake amount is zero. |
+| `23_2` | InsuranceVault | User has no stake record in this market. |
+| `23_3` | InsuranceVault | Unstake amount exceeds the staked amount. |
+| `23_4` | InsuranceVault | Stake cooldown period has not ended. |
+| `23_5` | InsuranceVault | No claimable rewards. |
+| `23_6` | InsuranceVault | The reward pool has no staked funds. |
+| `23_7` | InsuranceVault | No clearing account has been configured. |
+| `23_8` | InsuranceVault | Caller is not an authorized clearing account. |
+| `23_9` | InsuranceVault | Reward share computation overflow. |
+| `23_10` | InsuranceVault | Market ID is not in the insurance vault. |
+| `23_11` | InsuranceVault | Insurance vault subaccount not initialized. |
+| `24_0` | Lending | Lending market already exists. |
+| `24_1` | Lending | Asset pool already exists in this lending market. |
+| `24_2` | Lending | User has no position in this lending market. |
+| `24_3` | Lending | Invalid account ID. |
+| `24_4` | Lending | Asset is not supported by the lending market. |
+| `24_5` | Lending | Asset pool does not exist. |
+| `24_6` | Lending | User has no deposit record. |
+| `24_8` | Lending | Account balance is insufficient to deposit, borrow, or repay. |
+| `24_10` | Lending | Interest calculation failed. |
+| `24_11` | Lending | Asset pool liquidity is insufficient for borrowing or withdrawal. |
+| `24_12` | Lending | Health factor would fall below the safe threshold after this operation. |
+| `24_13` | Lending | User has no borrow record. |
+| `24_15` | Lending | No borrow amount to repay. |
+| `24_16` | Lending | Withdrawal amount exceeds the withdrawable deposit. |
+| `24_18` | Lending | Deposit record for this asset already exists. |
+| `24_20` | Lending | Borrow amount exceeds pool limit or borrowable capacity. |
+| `24_21` | Lending | Deposit/borrow snapshot data is corrupted. |
+| `24_22` | Lending | Borrow record for this asset already exists. |
+| `24_23` | Lending | Deposit amount is insufficient. |
+| `24_24` | Lending | Subaccount not initialized. |
+| `24_25` | Lending | Failed to fetch asset price. |
+| `24_26` | Lending | Account health is insufficient to complete this operation. |
+| `24_28` | Lending | Insufficient withdrawable token amount. |
+| `24_30` | Lending | Insufficient withdrawable balance. |
+| `24_31` | Lending | Unexpected internal error during borrow. |
+| `24_32` | Lending | Unexpected internal error during withdrawal. |
+| `24_33` | Lending | Invalid liability transfer amount for the liquidator. |
+| `24_34` | Lending | Liquidated user has no corresponding liability asset. |
+| `24_35` | Lending | Liquidated user has no corresponding deposit or collateral asset. |
+| `24_36` | Lending | Liquidator has no deposit record to receive transferred assets. |
+| `24_37` | Lending | Failed to compute account margin. |
+| `24_38` | Lending | Account still meets maintenance margin requirements and is not eligible for liquidation. |
+| `24_39` | Lending | Margin shortage computation failed. |
+| `24_40` | Lending | Releasable margin computation failed. |
+| `24_42` | Lending | Failed to compute liability transfer amount to cover margin shortage. |
+| `24_43` | Lending | Failed to compute liability transfer amount from asset amount. |
+| `24_44` | Lending | Failed to compute asset transfer amount from liability transfer value. |
+| `24_45` | Lending | Invalid liability transfer amount (zero or out of range). |
+| `24_46` | Lending | Invalid asset transfer amount (zero or out of range). |
+| `24_47` | Lending | Liquidator asset amount is insufficient to complete liquidation. |
+| `24_48` | Lending | Liquidator collateral is insufficient. |
+| `24_49` | Lending | User liability asset list is empty. |
+| `24_50` | Lending | Liquidation limit price check failed. |
+| `24_51` | Lending | Deposit would exceed the asset pool supply cap. |
+| `24_52` | Lending | Borrow would exceed the asset pool borrow cap. |
+| `24_53` | Lending | Protocol reserve is insufficient to complete the operation. |
+| `24_54` | Lending | Subaccount has reached the maximum number of spot asset types. |
+| `24_55` | Lending | User has no non-quote spot deposit to use as collateral. |
+| `24_56` | Lending | No spot market exists for this asset. |
+| `24_57` | Lending | Invalid quote asset payment amount for Insurance Fund takeover. |
+| `26_0` | PerpDeployer | This account is already registered as a deployer. |
+| `26_1` | PerpDeployer | This account is not a registered deployer. |
+| `26_2` | PerpDeployer | Stake amount is below the minimum required to become a deployer. |
+| `26_3` | PerpDeployer | Deployer still has active markets attached; cannot request unstake. |
+| `26_4` | PerpDeployer | Unstake lock period has not ended; cannot finalize. |
+| `26_5` | PerpDeployer | Deployer has reached the maximum number of deployable markets. |
+| `26_6` | PerpDeployer | Market is already attached to another deployer. |
+| `26_7` | PerpDeployer | Invalid account ID. |
+| `26_8` | PerpDeployer | Stake asset configuration not initialized. |

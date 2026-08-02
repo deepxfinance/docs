@@ -4,6 +4,8 @@
   "pages": [
     "getAccountSubaccounts",
     "getOneClickTradingAccounts",
+    "getWalletQuota",
+    "createQuotaClaim",
     "getSubaccountInfo",
     "getSubaccountPortfolio",
     "getSubaccountMarginRatio",

@@ -23,9 +23,10 @@ const sourceOpenApiPath = path.resolve(
 );
 const sourceSchemasDir = path.resolve(contractsRoot, 'v1/schemas');
 const outputSpecPath = path.resolve(docsRoot, 'sdk-api.json');
-const outputDocsDir = path.resolve(docsRoot, 'content/docs/developer/apis');
+const outputDocsDir = path.resolve(docsRoot, 'content/docs/api/rest');
 
 async function main() {
+  assertDirectory(contractsRoot);
   assertFile(sourceOpenApiPath);
   assertDirectory(sourceSchemasDir);
 
@@ -59,7 +60,7 @@ async function main() {
 
         meta.content = JSON.stringify(
           {
-            title: 'APIs',
+            title: 'REST API',
             ...JSON.parse(meta.content),
           },
           null,
@@ -137,9 +138,10 @@ function parseSchemaRef(ref) {
 }
 
 async function runRedoclyBundle(outputPath) {
-  const redoclyBin = findRedoclyBin();
+  const redoclyCli = findRedoclyCli();
 
-  await runCommand(redoclyBin, [
+  await runCommand(process.execPath, [
+    redoclyCli,
     'bundle',
     sourceOpenApiPath,
     '--dereferenced',
@@ -150,22 +152,21 @@ async function runRedoclyBundle(outputPath) {
   ]);
 }
 
-function findRedoclyBin() {
-  const executable = process.platform === 'win32' ? 'redocly.cmd' : 'redocly';
+function findRedoclyCli() {
   const candidates = [
-    path.resolve(docsRoot, 'node_modules/.bin', executable),
-    path.resolve(contractsRoot, 'node_modules/.bin', executable),
+    path.resolve(docsRoot, 'node_modules/@redocly/cli/bin/cli.js'),
+    path.resolve(contractsRoot, 'node_modules/@redocly/cli/bin/cli.js'),
   ];
 
-  const redoclyBin = candidates.find((candidate) => existsSync(candidate));
+  const redoclyCli = candidates.find((candidate) => existsSync(candidate));
 
-  if (!redoclyBin) {
+  if (!redoclyCli) {
     throw new Error(
       `Unable to find Redocly CLI. Install dependencies in ${contractsRoot} or add @redocly/cli to this docs project.`,
     );
   }
 
-  return redoclyBin;
+  return redoclyCli;
 }
 
 function runCommand(command, args) {

@@ -23,4 +23,4 @@ Once a nonce falls below this moving floor, it cannot be used again. Clients sho
 
 Nonce tracking is per signer, not per subaccount. When a wallet signs directly, the signer is the wallet address. When an API wallet signs, its address has its own nonce history.
 
-To invalidate a pending transaction with a particular nonce, submit a [`No-Op transaction`](/developer/protocol/no-op-transactions) with the same signer and nonce.
+To invalidate a pending transaction with a particular nonce, submit a [`No-Op transaction`](/protocol/no-op-transactions) with the same signer and nonce.

@@ -1,3 +1,27 @@
 ---
 title: No-Op Transactions
 ---
+
+A No-Op transaction has no account, balance, position, or order state change. Its sole protocol effect is consuming its nonce.
+
+## Replace a Pending Transaction
+
+Use a No-Op to prevent a pending transaction from executing later:
+
+1. Submit the No-Op with the same signer and nonce as the pending transaction.
+2. The No-Op replaces that transaction in the mempool when both are present.
+3. Once the No-Op is finalized, the nonce is consumed and the original transaction cannot be replayed.
+
+A No-Op using a different nonce does not cancel or replace the original transaction.
+
+## Validation and Cost
+
+A No-Op has no action-specific parameters. It must still have a valid signature and nonce, and it consumes one transaction quota.
+
+It is rejected when the nonce has already been used, is outside the validity window, falls below the signer's retained nonce floor, or the signer is currently rate limited.
+
+## Mempool Priority
+
+No-Op transactions have the highest mempool selection priority. This makes replacement effective when the original transaction is still pending. Mempool priority does not bypass signature, nonce, quota, or rate-limit checks.
+
+See [Nonces and Transaction Replacement](/developer/protocol/nonces-and-tx-replacement) for the nonce rules and [Transaction Quota](/account/transaction-quota) for quota behavior.

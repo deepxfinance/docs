@@ -1,3 +1,42 @@
 ---
 title: Margin and Open-Order Margin
 ---
+
+Open perpetual orders contribute to both initial margin requirement (IMReq) and maintenance margin requirement (MMReq). The protocol evaluates the worst possible net position if every open order in the market were filled.
+
+## Worst-Case Exposure
+
+For one perpetual market:
+
+```math
+\begin{aligned}
+\text{allBids} &= \text{position} + \text{openBids} \\
+\text{allAsks} &= \text{position} + \text{openAsks} \\
+\text{worstCaseBase} &= \max(|\text{allBids}|, |\text{allAsks}|) \\
+\text{worstCaseNotional} &= \text{worstCaseBase} \times \text{markPrice}
+\end{aligned}
+```
+
+`openBids` is the total quantity of open buy orders and `openAsks` is the total quantity of open sell orders. The calculation uses mark price, not the limit prices of individual orders.
+
+## Margin Requirement
+
+```math
+\text{orderMargin} = \text{worstCaseNotional} \times \text{marginRatio}
+  + \text{openOrderCount} \times \text{PERP\_ORDER\_SLOT\_FEE}
+```
+
+Use the market's IMR to calculate the initial requirement and its MMR to calculate the maintenance requirement. The fixed `PERP_ORDER_SLOT_FEE` is currently 0.01 USDC per open perpetual order.
+
+| Order relationship to the current position | Worst-case exposure |
+|---|---|
+| Same direction | Increases |
+| Opposite direction, no larger than the position | Does not increase |
+| Opposite direction, larger than the position | Increases after crossing through zero |
+| No position | The larger of the buy and sell exposures |
+
+## Order Admission
+
+When evaluating a new order, the protocol compares worst-case notional before and after the order. If the order does not increase risk, it is accepted even when the account's initial margin ratio is below 1. If it increases risk, the simulated post-order initial margin ratio must be at least 1.
+
+The fixed order-slot fee is included in ongoing margin requirements but is excluded from this admission comparison. This prevents a small fixed fee from blocking a risk-reducing order.

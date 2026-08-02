@@ -1,4 +1,10 @@
 {
   "title": "Protocol Reference",
-  "pages": []
+  "pages": [
+    "action-ordering",
+    "nonces-and-tx-replacement",
+    "no-op-transactions",
+    "client-order-ids",
+    "margin-and-open-order-margin"
+  ]
 }

@@ -1,0 +1,26 @@
+---
+title: Nonces and Transaction Replacement
+---
+
+Every signed transaction carries a nonce. DeepX uses timestamp-based nonces rather than a strictly consecutive counter.
+
+## Validity Window
+
+At the current block time `T`, a nonce must be within the window from `T - 2 days` to `T + 1 day`. A nonce outside this window is rejected.
+
+Nonces do not need to be consecutive. A client can submit a later valid nonce without first consuming every earlier timestamp.
+
+## Replay Protection
+
+The protocol records the 100 highest used nonces for each signer. A new nonce must:
+
+- be unused for that signer; and
+- be greater than the smallest nonce in that signer's retained set.
+
+Once a nonce falls below this moving floor, it cannot be used again. Clients should generate current timestamp-based nonces and avoid reusing values.
+
+## Signer Scope
+
+Nonce tracking is per signer, not per subaccount. When a wallet signs directly, the signer is the wallet address. When an API wallet signs, its address has its own nonce history.
+
+To invalidate a pending transaction with a particular nonce, submit a [`No-Op transaction`](/developer/protocol/no-op-transactions) with the same signer and nonce.

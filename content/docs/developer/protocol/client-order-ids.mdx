@@ -1,3 +1,30 @@
 ---
 title: Client Order IDs
 ---
+
+Clients can provide a Client Order ID (CLOID) when placing an order. A CLOID allows a client to identify, query, or cancel its order without waiting for a protocol-assigned order ID.
+
+## ID Ranges
+
+Order IDs are unsigned 32-bit integers. The most significant bit separates protocol-assigned IDs from client-provided IDs.
+
+| ID type | Range |
+|---|---|
+| Protocol-assigned order ID | `0` to `2^31 - 1` |
+| Client Order ID (CLOID) | `2^31` to `2^32 - 1` |
+
+The protocol never assigns an ID in the CLOID range.
+
+## Requirements
+
+- Supply the optional `cloid` value when placing an order.
+- The value must be in the CLOID range.
+- A CLOID is unique for the lifetime of its subaccount. It cannot be reused after the order is filled, canceled, expired, or otherwise closed.
+
+If `cloid` is omitted, the protocol assigns an order ID.
+
+## Client Guidance
+
+Allocate CLOIDs locally, preferably in increasing order, and persist them before submitting transactions. This lets a client prepare follow-up order actions immediately, while avoiding accidental reuse after a retry or restart.
+
+Operations that accept an order ID treat protocol-assigned IDs and CLOIDs identically.

@@ -1,3 +1,23 @@
 ---
 title: Action Ordering
 ---
+
+Actions in a block are executed in protocol-defined groups. The ordering is mandatory and cannot be changed by a proposer or client.
+
+## Execution Groups
+
+| Order | Group | Examples |
+|---:|---|---|
+| 1 | Non-orderbook actions | `NoOp` and other non-orderbook actions |
+| 2 | Cancellations | `CancelOrder`, `FastCancelOrder` |
+| 3 | Orderbook actions | Order placement, position closing, and orderbook liquidations |
+| 4 | Other actions | Actions outside the preceding groups |
+
+Actions within the same group execute in the order submitted by the proposer.
+
+## Effects for Clients
+
+- A cancellation is processed before orderbook actions in the same block. Clients can rely on this when releasing margin held by an open order before submitting a new order.
+- `FastCancelOrder` has higher mempool selection priority than a normal cancellation, but it has the same in-block execution group as `CancelOrder`.
+
+This ordering does not guarantee that two separately submitted transactions will be included in the same block. Clients must still handle normal pending, rejected, and finalized transaction states.

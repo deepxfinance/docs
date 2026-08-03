@@ -14,9 +14,15 @@ const errorCodesOutput = 'content/docs/api/error-codes.mdx';
 
 const pages = [
   {
+    source: 'v1/overview.md',
+    output: 'content/docs/api/overview.mdx',
+    title: 'API Overview',
+    description: 'Current public API version and changelog.',
+  },
+  {
     source: 'v1/rest-api/guides.md',
     output: 'content/docs/api/guides.mdx',
-    title: 'Guide',
+    title: 'REST API Guide',
     description: 'General API behavior, timestamps, ordering, and pagination.',
   },
   {
@@ -50,6 +56,7 @@ export async function syncContractDocs({ docsRoot = defaultDocsRoot, contractsRo
     contractsRoot ?? process.env.DEEPX_API_CONTRACTS_DIR ?? defaultContractsRoot,
   );
   assertDirectory(resolvedContractsRoot);
+  await assertContractVersions(resolvedContractsRoot);
   await syncErrorCodes({ docsRoot, contractsRoot: resolvedContractsRoot });
 
   for (const page of pages) {
@@ -64,6 +71,55 @@ export async function syncContractDocs({ docsRoot = defaultDocsRoot, contractsRo
     const frontmatter = `---\ntitle: ${title ?? page.title}\ndescription: ${page.description}\n---\n\n`;
     await writeFile(outputPath, `${frontmatter}${body}`, 'utf8');
   }
+}
+
+async function assertContractVersions(contractsRoot) {
+  const overviewPath = path.resolve(contractsRoot, 'v1/overview.md');
+  const openApiPath = path.resolve(contractsRoot, 'v1/rest-api/openapi.yaml');
+  const websocketPath = path.resolve(
+    contractsRoot,
+    'v1/websocket/01-general-info.md',
+  );
+  assertFile(overviewPath);
+  assertFile(openApiPath);
+  assertFile(websocketPath);
+
+  const [overview, openApiSource, websocket] = await Promise.all([
+    readFile(overviewPath, 'utf8'),
+    readFile(openApiPath, 'utf8'),
+    readFile(websocketPath, 'utf8'),
+  ]);
+  const overviewVersion = matchVersion(
+    overview,
+    /\*\*Current API Version:\*\*\s+`([^`]+)`/,
+    overviewPath,
+  );
+  const openApi = load(openApiSource);
+  const openApiVersion = String(openApi?.info?.version ?? '');
+  const websocketVersion = matchVersion(
+    websocket,
+    /\| \*\*API Version\*\* \| `([^`]+)` \|/,
+    websocketPath,
+  );
+
+  if (
+    openApiVersion !== overviewVersion ||
+    websocketVersion !== overviewVersion
+  ) {
+    throw new Error(
+      `API version mismatch: overview=${overviewVersion}, REST=${openApiVersion || 'missing'}, WebSocket=${websocketVersion}`,
+    );
+  }
+}
+
+function matchVersion(source, pattern, sourcePath) {
+  const match = source.match(pattern);
+
+  if (!match) {
+    throw new Error(`API version not found in ${sourcePath}`);
+  }
+
+  return match[1];
 }
 
 async function syncErrorCodes({ docsRoot, contractsRoot }) {

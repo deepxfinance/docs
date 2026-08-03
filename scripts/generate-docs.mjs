@@ -1,5 +1,6 @@
 import { generateFiles } from 'fumadocs-openapi';
 import { createOpenAPI } from 'fumadocs-openapi/server';
+import { syncContractDocs } from './sync-contract-docs.mjs';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -68,6 +69,8 @@ async function main() {
         );
       },
     });
+
+    await syncContractDocs({ docsRoot, contractsRoot });
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

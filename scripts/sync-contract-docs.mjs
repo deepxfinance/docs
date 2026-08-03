@@ -21,7 +21,7 @@ const pages = [
   },
   {
     source: 'v1/rest-api/guides.md',
-    output: 'content/docs/api/guides.mdx',
+    output: 'content/docs/api/rest/guides.mdx',
     title: 'REST API Guide',
     description: 'General API behavior, timestamps, ordering, and pagination.',
   },
@@ -71,6 +71,19 @@ export async function syncContractDocs({ docsRoot = defaultDocsRoot, contractsRo
     const frontmatter = `---\ntitle: ${title ?? page.title}\ndescription: ${page.description}\n---\n\n`;
     await writeFile(outputPath, `${frontmatter}${body}`, 'utf8');
   }
+
+  await ensureRestGuideNavigation(docsRoot);
+}
+
+async function ensureRestGuideNavigation(docsRoot) {
+  const metaPath = path.resolve(docsRoot, 'content/docs/api/rest/meta.json');
+  assertFile(metaPath);
+
+  const meta = JSON.parse(await readFile(metaPath, 'utf8'));
+  const pages = Array.isArray(meta.pages) ? meta.pages : [];
+  meta.pages = ['guides', ...pages.filter((page) => page !== 'guides')];
+
+  await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
 }
 
 async function assertContractVersions(contractsRoot) {

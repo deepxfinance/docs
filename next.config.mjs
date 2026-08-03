@@ -16,7 +16,7 @@ const config = {
       },
       {
         source: '/developer/guides',
-        destination: '/api/guides',
+        destination: '/api/rest/guides',
         permanent: true,
       },
       {

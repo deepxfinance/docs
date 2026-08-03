@@ -3,7 +3,6 @@
   "title": "API Reference",
   "pages": [
     "overview",
-    "guides",
     "rest",
     "websocket",
     "error-codes"

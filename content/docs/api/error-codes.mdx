@@ -39,12 +39,12 @@ On-chain errors identify a transaction that reached the trading chain and revert
 | Code | Pallet | Message |
 |---|---|---|
 | `19_0` | Subaccount | Subaccount not initialized. |
-| `19_1` | Subaccount | Delegate account is invalid or not authorized for this subaccount. |
-| `19_2` | Subaccount | Subaccount has reached the maximum number of delegate accounts. |
+| `19_1` | Subaccount | Delegate account is invalid or not authorized for this wallet owner. |
+| `19_2` | Subaccount | Wallet owner has reached the maximum number of delegate accounts. |
 | `19_3` | Subaccount | OCT (One Click Trading) account not initialized. |
 | `19_4` | Subaccount | OCT account already exists. |
 | `19_5` | Subaccount | User has reached the maximum number of OCT accounts. |
-| `19_6` | Subaccount | Caller is not the owner or an authorized delegate of this subaccount. |
+| `19_6` | Subaccount | Caller is not the subaccount owner or an authorized delegate of its wallet owner. |
 | `19_7` | Subaccount | Cannot switch spot margin trading mode while open spot orders exist. |
 | `19_8` | Subaccount | Cannot delete subaccount: open positions, orders, or non-zero balances remain. |
 | `19_9` | Subaccount | Subaccount name is already in use by this account. |
@@ -66,6 +66,10 @@ On-chain errors identify a transaction that reached the trading chain and revert
 | `19_29` | Subaccount | Subaccount has open orders. |
 | `19_30` | Subaccount | Configured maximum spot asset type limit is invalid. |
 | `19_31` | Subaccount | Configured maximum perpetual positions limit is invalid. |
+| `19_34` | Subaccount | Delegate permission has expired; renew it via setDelegateAccount before use. |
+| `19_36` | Subaccount | Delegate account has reached the maximum number of wallet owners. |
+| `19_37` | Subaccount | Delegate account has not been configured for this wallet owner. |
+| `19_40` | Subaccount | Delegate mode is not supported for this operation. |
 | `20_0` | SpotMarket | Spot market not initialized. |
 | `20_1` | SpotMarket | Spot market for this trading pair already exists. |
 | `20_2` | SpotMarket | Order size or transfer amount is invalid (zero or invalid precision). |
@@ -78,7 +82,7 @@ On-chain errors identify a transaction that reached the trading chain and revert
 | `20_10` | SpotMarket | Order price is invalid (zero, invalid tick size, or outside price limits). |
 | `20_11` | SpotMarket | User has reached the maximum number of pending orders in this market. |
 | `20_12` | SpotMarket | Subaccount not initialized. |
-| `20_13` | SpotMarket | Caller is not the subaccount owner or an authorized delegate. |
+| `20_13` | SpotMarket | Caller is not the subaccount owner or an authorized delegate of its wallet owner. |
 | `20_17` | SpotMarket | Insufficient available balance to place order or transfer funds. |
 | `20_20` | SpotMarket | User has reached the maximum number of active spot orders. |
 | `20_23` | SpotMarket | Order size is below the market minimum order size. |
@@ -140,7 +144,7 @@ On-chain errors identify a transaction that reached the trading chain and revert
 | `22_57` | PerpMarket | Margin shortage computation failed. |
 | `22_58` | PerpMarket | No liquidity bucket found during liquidation. |
 | `22_59` | PerpMarket | Order status does not allow this operation (e.g. filled or cancelled). |
-| `22_60` | PerpMarket | Delegate is not authorized to operate on behalf of this subaccount. |
+| `22_60` | PerpMarket | Delegate is not authorized to operate on behalf of this subaccount's wallet owner. |
 | `22_61` | PerpMarket | Order notional value is below the market minimum notional. |
 | `22_62` | PerpMarket | Closing price is invalid or outside the allowed range. |
 | `22_63` | PerpMarket | Position is already in a closing flow. |

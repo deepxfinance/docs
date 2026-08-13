@@ -2,4 +2,53 @@
 title: Perpetuals Trading
 ---
 
-...
+A [Perpetual Contract](/glossary#perpetual-contract) tracks the price of an underlying asset with no expiry date, allowing you to trade in either direction with leverage.
+
+## Long and Short
+
+- **Long**: You profit when the price rises.
+- **Short**: You profit when the price falls.
+
+Opening a position requires [Initial Margin](/glossary#initial-margin) as collateral. Your maximum position size is limited by the market's maximum [Leverage](/trading/leverage) and your account's initial-margin ratio.
+
+## Opening a Position
+
+1. [Deposit](/getting-started/deposit-withdraw-borrow-repay) assets as collateral, or use assets you already hold on DeepX.
+2. On the perpetual trading page, pick a market and your order type. See [Order Types](/trading/order-types).
+3. Set the quantity and price. The maximum notional is your available margin times your effective [Leverage](/trading/leverage#on-chain-leverage) cap.
+4. Submit the order. It executes against the order book, and any filled quantity becomes your position.
+
+Your position's margin requirement and liquidation distance follow the formulas in [Leverage](/trading/leverage). While it stays open, it accrues [Funding Rates](/trading/funding-rates) every hour.
+
+## Closing a Position
+
+Place an opposite order to reduce or close your position. A [Reduce-Only Order](/trading/order-types#reduce-only-order) guarantees the fill cannot increase or flip your position. Alternatively, lower your leverage cap never closes existing positions—only new increases are blocked.
+
+Unrealized PnL stays floating until closed or settled. See [PnL Settlement](#pnl-settlement) below.
+
+## PnL Settlement
+
+PnL settlement converts an open perpetual position's [Unrealized PnL](/glossary#unrealized-profit-and-loss-unrealized-pnl) and unsettled funding payments into USDC deposits or borrows.
+
+- Profits increase the USDC deposit. They earn interest and can be used as margin.
+- Losses first reduce the USDC deposit. Any shortfall becomes a USDC borrow that accrues interest.
+
+Settlement does not change an account's [uniMMR](/glossary#unified-maintenance-margin-ratio-unimmr): USDC has 100% asset and borrow weights, so converting floating items into deposits or borrows leaves the collateral ratio unchanged. A new borrow starts accruing interest afterward, gradually lowering uniMMR over time.
+
+### Settlement Reference Price
+
+After each settlement, the position's settlement reference price is updated to the current [Mark Price](/glossary#mark-price). The next settlement's unrealized PnL is measured from this new reference:
+
+```math
+\text{UnrealizedPnl} = (\text{MarkPrice} - \text{SettlementReferencePrice}) \times \text{PositionSize}
+```
+
+Unsettled funding is tracked from a per-position checkpoint (the cumulative funding index at entry or at the last settlement) and is settled together with unrealized PnL.
+
+### Position Changes
+
+Funding is settled before any position size change. Increases update the entry and settlement reference prices by the weighted fill price; decreases leave them unchanged; a flip closes the existing position and opens the opposite one as a new position.
+
+### When Settlement Happens
+
+Settlement is not forced on a schedule. Anyone can settle any subaccount at any time. The platform periodically settles losing positions, while users may settle profitable positions themselves. Until a settlement happens, floating losses still count toward collateral value, so uniMMR remains accurate.

@@ -1,0 +1,30 @@
+---
+title: Unified Account
+---
+
+DeepX uses a unified account model: within a single subaccount, spot, perpetual, and lending activities share one margin pool and one risk boundary. There is no need to allocate margin separately across products or markets.
+
+## One Margin Pool
+
+Deposited assets, borrowed assets, open perpetual positions, and open orders are all valued against the same account. Margin held by one position can cover losses in another, and profits in one market can immediately serve as margin elsewhere.
+
+For example, BTC deposited as collateral can simultaneously back a SOL perpetual position and a spot purchase. [Unrealized PnL](/glossary#unrealized-profit-and-loss-unrealized-pnl) also contributes to your account's collateral value before it is settled.
+
+Deposited assets automatically join the lending pools and earn supply interest while serving as collateral. See [Lending and Borrowing](/lend-and-borrow/lend-and-borrow).
+
+## Multi-Asset Cross Margin
+
+You can use BTC, ETH, SOL, USDC, and other supported assets as collateral. Each asset contributes to your initial and maintenance collateral through risk-adjusted weights ([IAW](/glossary#initial-asset-weight-iaw), [MAW](/glossary#maintenance-asset-weight-maw)), while each borrowed asset adds to your liabilities through ([IBW](/glossary#initial-borrow-weight-ibw), [MBW](/glossary#maintenance-borrow-weight-mbw)). See the [Glossary](/glossary#unified-margin) for the full set of weight definitions.
+
+## Account Health
+
+Two account-level ratios summarize your account's health across all products:
+
+- **[Unified Initial Margin Ratio (uniIMR)](/glossary#unified-initial-margin-ratio-uniimr)**: the ratio of your [Total Initial Collateral Value (TICV)](/glossary#total-initial-collateral-value-ticv) to your [Initial Margin Requirement (IMReq)](/glossary#initial-margin-requirement-imreq). It must be at least 1 to open new positions or borrow more.
+- **[Unified Maintenance Margin Ratio (uniMMR)](/glossary#unified-maintenance-margin-ratio-unimmr)**: the ratio of your [Total Collateral Value (TCV)](/glossary#total-collateral-value-tcv) to your [Maintenance Margin Requirement (MMReq)](/glossary#maintenance-margin-requirement-mmreq). When it falls below 1, the account is subject to [Liquidation](/risk-and-liquidations/liquidations).
+
+A single risk boundary covers spot, perpetuals, and borrows together: a loss in one position reduces the margin available everywhere.
+
+## Subaccounts
+
+Each subaccount has its own independent margin pool and risk boundary. See [Manage Subaccounts](/account/subaccounts) for portfolio segregation, strategy isolation, and risk control.

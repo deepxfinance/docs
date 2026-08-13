@@ -2,6 +2,7 @@
   "defaultOpen": false,
   "title": "Account",
   "pages": [
+    "unified-account",
     "subaccounts",
     "transaction-quota"
   ]

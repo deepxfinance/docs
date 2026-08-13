@@ -24,6 +24,22 @@ Assets with lower volatility (e.g., USDC) have higher IAWs and MAWs, enabling hi
 
 [Large Position Penalty](/glossary#large-position-penalty) adjusts IAW for large deposits and IBW for large borrows, based on post-action notional value. See [Risk Controls](/risk-and-liquidations/risk-controls#large-position-penalty) for details.
 
+## Maximum Borrowable and Withdrawable Amount
+
+The **maximum borrowable amount** is the additional borrow that leaves the account exactly at its initial-margin limit:
+
+```math
+\text{TICV} = \text{IMReq} + \text{MaxBorrowable} \times \text{IBW}
+```
+
+The **maximum withdrawable amount** is the withdrawal that leaves the account exactly at its initial-margin limit:
+
+```math
+\text{TICV} - \text{MaxWithdrawable} \times \text{IAW} = \text{IMReq}
+```
+
+where TICV is the [Total Initial Collateral Value](/glossary#total-initial-collateral-value-ticv) and IMReq is the [Initial Margin Requirement](/glossary#initial-margin-requirement-imreq). Open positions and open orders contribute to IMReq through their margin requirements.
+
 ## Margin Parameters
 
 <div style={{ }}>

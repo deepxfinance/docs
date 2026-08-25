@@ -34,6 +34,11 @@ const config = {
         destination: '/protocol/:path*',
         permanent: true,
       },
+      {
+        source: '/protocol/client-order-ids',
+        destination: '/protocol/transaction-nonce-order-ids',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

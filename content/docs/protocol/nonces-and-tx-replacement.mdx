@@ -1,26 +1,35 @@
 ---
-title: Nonces and Transaction Replacement
+title: Transaction Nonces and Replacement
 ---
 
-Every signed transaction carries a nonce. DeepX uses timestamp-based nonces rather than a strictly consecutive counter.
+DeepX has two transaction nonce schemes. The operation being signed determines which scheme applies.
 
-## Validity Window
+## Sequential Transaction Nonces
 
-At the current block time `T`, a nonce must be within the window from `T - 2 days` to `T + 1 day`. A nonce outside this window is rejected.
+A sequential transaction nonce is an account counter. It must equal the nonce account's current value when the transaction executes, then advances by one. A later sequential nonce can be submitted in advance, but waits for its predecessor.
 
-Nonces do not need to be consecutive. A client can submit a later valid nonce without first consuming every earlier timestamp.
+This scheme is used by signed operations that are not designated as timestamp transactions, including general EVM and precompile calls outside trading flows.
 
-## Replay Protection
+## Timestamp Transaction Nonces
 
-The protocol records the 100 highest used nonces for each signer. A new nonce must:
+Trading and order-management operations use a Unix epoch millisecond timestamp as their transaction nonce. Timestamp nonces do not need to be consecutive.
 
-- be unused for that signer; and
-- be greater than the smallest nonce in that signer's retained set.
+At block time `T`, the nonce must be strictly inside this window:
 
-Once a nonce falls below this moving floor, it cannot be used again. Clients should generate current timestamp-based nonces and avoid reusing values.
+```text
+T - 1 hour < nonce < T + 1 hour
+```
 
-## Signer Scope
+The protocol retains the highest accepted timestamp nonces for each nonce account. A nonce must be unused; once the retained set is full, it must also be greater than the set's lowest value. The retained count is 100 on testnet and 400 on the development network. Generate a fresh current timestamp nonce for each transaction and do not reuse past values.
 
-Nonce tracking is per signer, not per subaccount. When a wallet signs directly, the signer is the wallet address. When an API wallet signs, its address has its own nonce history.
+## Nonce Account Scope
 
-To invalidate a pending transaction with a particular nonce, submit a [`No-Op transaction`](/protocol/no-op-transactions) with the same signer and nonce.
+For a direct transaction, the nonce account is the signer. For an authorized delegate transaction targeting a subaccount, the nonce account is the subaccount authority. The authority and all of its authorized delegates therefore share nonce state for that subaccount's transactions and must coordinate their nonce allocation.
+
+A delegate transaction without a subaccount target uses the delegate's own nonce account. In particular, a delegate's [No-Op transaction](/protocol/no-op-transactions) cannot replace that delegate's pending subaccount order, because the two transactions use different nonce accounts.
+
+## Replace a Pending Timestamp Transaction
+
+A No-Op transaction using the same nonce account and timestamp nonce can replace a pending timestamp transaction. This only works while the original transaction remains pending. Once either transaction is finalized, the nonce is consumed and cannot be reused.
+
+See [No-Op Transactions](/protocol/no-op-transactions) for the replacement workflow and [Order Transaction Nonces and Order IDs](/protocol/transaction-nonce-order-ids) for the special relationship between direct order placement and order IDs.

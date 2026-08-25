@@ -4,7 +4,7 @@
     "action-ordering",
     "nonces-and-tx-replacement",
     "no-op-transactions",
-    "client-order-ids",
+    "transaction-nonce-order-ids",
     "margin-and-open-order-margin"
   ]
 }

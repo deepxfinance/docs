@@ -1,0 +1,19 @@
+---
+title: Order Transaction Nonces and Order IDs
+---
+
+An **order transaction nonce** is the timestamp transaction nonce used by a direct spot or perpetual order-placement transaction, or by a modify-order transaction. When that transaction creates an order, the protocol uses its nonce as the order ID.
+
+There is no separate order-ID input for these transactions. The value is known before submission, so a client can persist it with the target subaccount and order intent, then use it for later queries or cancellation. For a modify-order transaction, the value identifies the newly created replacement order.
+
+## System Order IDs
+
+Not every order uses an order transaction nonce. A batch operation that places an order, and order paths such as automatic close or liquidation, use the target subaccount's system order-ID sequence. These IDs are allocated by the protocol and have no numeric relationship to a transaction nonce.
+
+## Nonce Account Scope
+
+An order transaction nonce follows the [timestamp transaction nonce rules](/protocol/nonces-and-tx-replacement). For a transaction targeting a subaccount, its authority and authorized delegates share the authority's nonce account. They must coordinate nonce allocation so that they do not request the same order ID for that subaccount.
+
+An authority can replace its own pending direct order-placement or modify-order transaction with a No-Op using the same timestamp nonce. A delegate's No-Op uses the delegate's own nonce account, so it cannot replace the delegate's pending transaction for an authority's subaccount.
+
+See [Transaction Nonces and Replacement](/protocol/nonces-and-tx-replacement) for validity, replay protection, and replacement behavior.

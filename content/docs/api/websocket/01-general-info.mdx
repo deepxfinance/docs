@@ -12,7 +12,7 @@ DeepX public API provides a high-performance, real-time data streaming service v
 | **API Version** | `1.1.0` |
 | **Base Endpoint** | `wss://testnet-api.deepx.fi/v1/ws` |
 | **Protocol** | JSON text frames, UTF-8 encoded |
-| **Max Active Streams** | 1024 per connection |
+| **Max Active Subscriptions** | 100 per connection |
 | **Session Duration** | 24 hours (forced rotation — reconnect gracefully) |
 | **Heartbeat Interval** | Server sends `{"method":"ping"}` every **20 seconds** |
 | **Pong Deadline** | Client must respond `{"method":"pong"}` within **10 seconds** |

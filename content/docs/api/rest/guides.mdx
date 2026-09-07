@@ -11,11 +11,7 @@ description: General API behavior, timestamps, ordering, and pagination.
   * With `startTime`, returns oldest items from `startTime` up to the `limit`.
   * With `endTime`, returns most recent items up to `endTime` and the `limit`.
   * With both, behaves like `startTime` but does not exceed `endTime`.
-- **Pagination**: Historical data is paginated using `cursor` and `limit`. All paginated responses include `nextCursor` and `hasNext` metadata:
-  * `nextCursor`: The ID of the oldest record in the current page. Pass this as `cursor` in the next request to fetch the next (older) page. `null` when there are no more records.
-  * `hasNext`: `true` if more records are available beyond the current page. Stop paginating when `hasNext` is `false` (equivalent to the returned array length being `< limit`).
-  * When combining with `startTime`/`endTime`, all three filters apply together:
-    - With `cursor` and `endTime`, returns items after `cursor` and before `endTime` up to the `limit`.
-    - With `cursor` and `startTime`, returns items after `cursor` and after `startTime` up to the `limit`.
-    - With `cursor`, `startTime`, and `endTime`, returns items after `cursor` and between `startTime` and `endTime` up to the `limit`.
-  * When `cursor` points to a record earlier than `startTime`, all candidate records fall before the time window. The response returns an empty `items` array with `nextCursor: null` and `hasNext: false`.
+- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:
+  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.
+  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, and lending-market history use this pattern.
+  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.

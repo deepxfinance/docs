@@ -136,7 +136,7 @@ Pushes order state as it transitions through its lifecycle: pending → open →
   "channel": "account@perp-orders",
   "data": [
     {
-      "orderId": "88383",
+      "orderId": "1713825800000",
       "symbol": "ETH-USDC",
       "subaccount": "{SUBACCOUNT_ADDRESS}",
       "side": "BUY",
@@ -167,7 +167,7 @@ Pushes order state as it transitions through its lifecycle: pending → open →
 {
   "channel": "account@perp-orders",
   "data": {
-    "orderId": "88383",
+    "orderId": "1713825800000",
     "symbol": "ETH-USDC",
     "subaccount": "{SUBACCOUNT_ADDRESS}",
     "side": "BUY",
@@ -221,7 +221,7 @@ Pushes spot order state changes.
   "channel": "account@spot-orders",
   "data": [
     {
-      "orderId": "41200",
+      "orderId": "1713825810000",
       "symbol": "BTC-USDC",
       "subaccount": "{SUBACCOUNT_ADDRESS}",
       "side": "BUY",
@@ -282,7 +282,7 @@ Pushes each fill as it is matched, from the perspective of the scoped account.
       "marketId": 3,
       "time": 1713825891591,
       "subaccount": "{SUBACCOUNT_ADDRESS}",
-      "orderId": "88383",
+      "orderId": "1713825800000",
       "side": "BUY",
       "role": "TAKER",
       "price": "2034.75",
@@ -434,6 +434,7 @@ Unified portfolio metrics including initial and maintenance collateral, margin r
   "channel": "account@portfolio",
   "data": {
     "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "equity": "799.80",
     "totalDepositsUsd": "799.80",
     "totalBorrowsUsd": "0.00",
     "totalCollateral": "800.19",
@@ -451,6 +452,7 @@ Unified portfolio metrics including initial and maintenance collateral, margin r
 | Field | Type | Description |
 |---|---|---|
 | `subaccount` | string | Subaccount address |
+| `equity` | string | Net account value in USD |
 | `totalDepositsUsd` | string | Total USD value of deposited assets |
 | `totalBorrowsUsd` | string | Total USD value of borrowed assets |
 | `totalCollateral` | string | Total Collateral Value (maintenance-level). Sum of MAV + unrealized PnL + unsettled funding |

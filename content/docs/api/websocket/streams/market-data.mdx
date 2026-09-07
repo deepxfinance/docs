@@ -9,7 +9,8 @@ Real-time price, volume, and liquidity updates. All channels are public — no a
 
 ## 1. Orderbook (`@orderbook`)
 
-Full L2 snapshot pushed every block (~70ms). Self-healing — no local state management required; each message is a complete replacement.
+The first push after subscribing is a full L2 `snapshot`. Later pushes are
+`delta` updates that clients apply to their local orderbook.
 
 **Channel**: `spot@orderbook` or `perp@orderbook`
 
@@ -31,33 +32,39 @@ Full L2 snapshot pushed every block (~70ms). Self-healing — no local state man
   "channel": "perp@orderbook",
   "data": {
     "symbol": "ETH-USDC",
-    "lastUpdateId": 9004812,
-    "engineTime": 1713825891591,
-    "serverTime": 1713825891603,
+    "updateType": "delta",
+    "prevLastUpdateId": 123,
+    "lastUpdateId": 124,
+    "engineTime": 1738843945610,
+    "serverTime": 1738843945613,
     "bids": [
-      ["2034.50", "1.200"],
-      ["2034.00", "4.800"],
-      ["2033.50", "2.100"]
+      ["2209.7", "1.25"],
+      ["2208.9", "0"]
     ],
     "asks": [
-      ["2035.00", "0.800"],
-      ["2035.50", "3.200"],
-      ["2036.00", "1.500"]
+      ["2210.1", "0.8"]
     ]
   }
 }
 ```
 
+For each `delta`, `prevLastUpdateId` must match the client's current
+`lastUpdateId`. If it does not match, resubscribe to receive a fresh
+`snapshot`. In a `delta`, a bid or ask with quantity `"0"` removes that price
+level; any other quantity replaces the quantity at that price.
+
 | Field | Type | Description |
 |---|---|---|
 | `symbol` | string | Market symbol |
+| `updateType` | string | `snapshot` for the initial full book; `delta` for subsequent changes |
+| `prevLastUpdateId` | int64 \| null | Previous sequence ID. For a `delta`, this must match the client's current `lastUpdateId` |
 | `lastUpdateId` | int64 | Sequence ID of the last matching engine event for this book |
 | `engineTime` | int64 | Millisecond timestamp when the matching engine last updated the book |
 | `serverTime` | int64 | Millisecond timestamp when this message was compiled |
-| `bids` | `[price, qty][]` | Buy orders; best bid (highest price) first |
-| `asks` | `[price, qty][]` | Sell orders; best ask (lowest price) first |
+| `bids` | `[price, qty][]` | Buy levels. In a `delta`, quantity `"0"` removes the price level |
+| `asks` | `[price, qty][]` | Sell levels. In a `delta`, quantity `"0"` removes the price level |
 
-**Update cadence**: Every block (~70ms)
+**Update cadence**: Every block
 
 ---
 
@@ -92,7 +99,7 @@ Pushes each new trade execution as it settles on-chain.
     "qty": "0.500",
     "quoteQty": "1017.375",
     "takerSide": "BUY",
-    "buyOrderId": "88383",
+    "buyOrderId": "1713825800000",
     "sellOrderId": "88102",
     "takerFee": "0.025435",
     "makerFee": "0.010173"
@@ -112,7 +119,7 @@ Pushes each new trade execution as it settles on-chain.
     "qty": "0.010",
     "quoteQty": "634.50",
     "takerSide": "SELL",
-    "buyOrderId": "41200",
+    "buyOrderId": "1713825810000",
     "sellOrderId": "41199",
     "takerFee": "0.634500",
     "makerFee": "0.317250"
@@ -183,7 +190,7 @@ Aggregated 24h market statistics.
 | `tradeCount24h` | int64 | Number of trades over the last 24 hours |
 | `time` | int64 | Snapshot timestamp (epoch ms) |
 
-**Update cadence**: Every block (~70ms)
+**Update cadence**: Every block
 
 See [`Ticker`](../../schemas/Ticker.yaml) for the full field reference.
 
@@ -227,7 +234,7 @@ Real-time index price and mark price for a perpetual market.
 | `markPrice` | string | Fair price used for unrealized PnL and liquidations |
 | `time` | int64 | Snapshot timestamp (epoch ms) |
 
-**Update cadence**: Every block (~70ms)
+**Update cadence**: Every block
 
 ---
 
@@ -269,7 +276,7 @@ Current funding rate and 24h average for a perpetual market.
 | `avgFundingRate24h` | string | 24h average funding rate as a decimal |
 | `time` | int64 | Snapshot timestamp (epoch ms) |
 
-**Update cadence**: Every block (~70ms)
+**Update cadence**: Every block
 
 ---
 
@@ -351,7 +358,7 @@ Ratio of long-to-short open positions. A value of `4.00` means there are 4× mor
 | `longShortRatio` | string | Long-to-short position ratio (`> 0`; `> 1` = more longs than shorts) |
 | `time` | int64 | Snapshot timestamp (epoch ms) |
 
-**Update cadence**: Every block (~70ms)
+**Update cadence**: Every block
 
 ---
 
@@ -404,7 +411,7 @@ In-progress OHLCV candle for the current interval. The candle updates on every b
 
 **Supported intervals**: `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `12h`, `1d`, `3d`, `1w`, `1M`
 
-**Update cadence**: Every block (~70ms) for the current in-progress candle
+**Update cadence**: Every block for the current in-progress candle
 
 ---
 

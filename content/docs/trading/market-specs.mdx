@@ -22,6 +22,8 @@ The platform uses three key parameters to control trade precision:
 
 Together, these parameters help maintain a clean, efficient trading environment while allowing users to execute trades with precision.
 
+Liquidation incentives depend on how the liquidation is executed. An orderbook liquidator receives the Orderbook Liquidator Fee on the executed notional value. A liquidator that takes over a position or spot asset instead receives the fixed Takeover Reward through its takeover price: a long position or spot asset is transferred at `Mark Price × (1 − Takeover Reward)`, while a short position is transferred at `Mark Price × (1 + Takeover Reward)`. These two incentives do not apply to the same liquidation. The Liquidation Insurance Fee is charged separately and allocated to the Insurance Fund.
+
 ### Spot Market Specifications
 
 <div style={{ overflowX: 'auto' }}>
@@ -34,7 +36,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
         <th>Min Order Size</th>
         <th>Min Notional</th>
         <th>Step Size</th>
-        <th>Liquidator Fee</th>
+        <th>Orderbook Liquidator Fee</th>
+        <th>Takeover Reward</th>
         <th>Liquidation Insurance Fee</th>
         <th>Trading Insurance Fee</th>
       </tr>
@@ -47,7 +50,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
         <td>0.00001 BTC</td>
         <td>1 USDC</td>
         <td>0.00001 BTC</td>
-        <td>0.5%</td>
+        <td>0.05%</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
       </tr>
@@ -59,7 +63,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
         <td>0.0001 ETH</td>
         <td>1 USDC</td>
         <td>0.0001 ETH</td>
-        <td>0.5%</td>
+        <td>0.05%</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
       </tr>
@@ -71,7 +76,8 @@ Together, these parameters help maintain a clean, efficient trading environment 
         <td>0.001 SOL</td>
         <td>1 USDC</td>
         <td>0.001 SOL</td>
-        <td>0.5%</td>
+        <td>0.05%</td>
+        <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
       </tr>
@@ -108,7 +114,8 @@ There are two parameters that control a market's leverage level:
         <th>IMR</th>
         <th>MMR</th>
         <th>IMR Penalty Threshold</th>
-        <th>Liquidator Fee</th>
+        <th>Orderbook Liquidator Fee</th>
+        <th>Takeover Reward</th>
         <th>Liquidation Insurance Fee</th>
         <th>Trading Insurance Fee</th>
         <th>Borrowing Insurance Fee</th>
@@ -125,6 +132,7 @@ There are two parameters that control a market's leverage level:
         <td>4%</td>
         <td>2%</td>
         <td>$50,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -141,6 +149,7 @@ There are two parameters that control a market's leverage level:
         <td>4%</td>
         <td>2%</td>
         <td>$50,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -157,6 +166,7 @@ There are two parameters that control a market's leverage level:
         <td>4%</td>
         <td>2%</td>
         <td>$50,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -173,6 +183,7 @@ There are two parameters that control a market's leverage level:
         <td>8%</td>
         <td>4%</td>
         <td>$30,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -189,6 +200,7 @@ There are two parameters that control a market's leverage level:
         <td>8%</td>
         <td>4%</td>
         <td>$30,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -205,6 +217,7 @@ There are two parameters that control a market's leverage level:
         <td>8%</td>
         <td>4%</td>
         <td>$30,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -221,6 +234,7 @@ There are two parameters that control a market's leverage level:
         <td>8%</td>
         <td>4%</td>
         <td>$30,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>
@@ -237,6 +251,7 @@ There are two parameters that control a market's leverage level:
         <td>8%</td>
         <td>4%</td>
         <td>$30,000</td>
+        <td>0.05%</td>
         <td>0.1%</td>
         <td>0.5%</td>
         <td>5%</td>

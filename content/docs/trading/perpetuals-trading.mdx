@@ -33,7 +33,7 @@ PnL settlement converts an open perpetual position's [Unrealized PnL](/glossary#
 - Profits increase the USDC deposit. They earn interest and can be used as margin.
 - Losses first reduce the USDC deposit. Any shortfall becomes a USDC borrow that accrues interest.
 
-Settlement does not change an account's [uniMMR](/glossary#unified-maintenance-margin-ratio-unimmr): USDC has 100% asset and borrow weights, so converting floating items into deposits or borrows leaves the collateral ratio unchanged. A new borrow starts accruing interest afterward, gradually lowering uniMMR over time.
+At unchanged prices, and excluding newly accrued interest and rounding differences, settlement preserves your account's net equity. However, [uniMMR](/glossary#unified-maintenance-margin-ratio-unimmr) can change when floating losses become USDC borrows, because floating PnL and borrows enter different parts of the ratio.
 
 ### Settlement Reference Price
 
@@ -51,4 +51,4 @@ Funding is settled before any position size change. Increases update the entry a
 
 ### When Settlement Happens
 
-Settlement is not forced on a schedule. Anyone can settle any subaccount at any time. The platform periodically settles losing positions, while users may settle profitable positions themselves. Until a settlement happens, floating losses still count toward collateral value, so uniMMR remains accurate.
+Settlement is not forced on a schedule. Anyone can settle any subaccount at any time. The platform periodically settles losing positions, while users may settle profitable positions themselves. Until a settlement happens, floating losses still count toward collateral value; they are not omitted from the account's health calculation.

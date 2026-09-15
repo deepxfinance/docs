@@ -1,5 +1,5 @@
 ---
-title: Transparent Account Data Streams
+title: Account Data Streams
 description: Real-time subaccount positions, orders, trades, balances, and portfolio streams.
 ---
 
@@ -353,7 +353,7 @@ See [`AccountSpotTrade`](../../schemas/AccountSpotTrade.yaml) for the full field
 
 Per-asset net balances for a subaccount. Pushes on any balance-affecting event: deposit, withdrawal, borrow, repayment, settlement, liquidation, or funding payment.
 
-For the full history of what caused each change, use the REST endpoint `GET /v1/account/subaccounts/{address}/balance-changes`.
+For the full history of what caused each change, use the REST endpoint `GET /v1/account/subaccounts/{address}/balance-events`.
 
 **Channel**: `account@balances`
 **Scope**: `subaccount` (required — balances are per subaccount)
@@ -405,18 +405,18 @@ For the full history of what caused each change, use the REST endpoint `GET /v1/
 |---|---|---|
 | `asset` | string | Token symbol (e.g., `"USDC"`) |
 | `balance` | string | Net balance. Positive = holds asset. Negative = owes asset (from borrow or trading loss) |
-| `price` | string | Current index price in USD |
+| `price` | string | Current index price in USDC per unit of the asset |
 
 ---
 
 ## 7. Portfolio Summary (`account@portfolio`)
 
-Unified portfolio metrics including initial and maintenance collateral, margin requirements, available margin for new positions, and margin ratios.
+Unified subaccount metrics. Account-level values are denominated in USDC. Balance and withdrawal-limit expansions are optional; account risk calculations always include the complete subaccount.
 
 **Channel**: `account@portfolio`
 **Scope**: `subaccount` (required)
 
-**Subscribe**:
+**Subscribe (summary only)**:
 ```json
 {
   "method": "subscribe",
@@ -428,12 +428,29 @@ Unified portfolio metrics including initial and maintenance collateral, margin r
 }
 ```
 
+**Subscribe (selected expansions)**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-17",
+  "params": {
+    "channel": "account@portfolio",
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "include": ["balances", "withdrawalLimits"],
+    "assets": ["ETH", "USDC"]
+  }
+}
+```
+
+`include` supports `balances` and `withdrawalLimits`. `assets` filters only the requested expansion and never narrows account-level risk calculations. Omitting `assets` includes all non-zero assets; an explicit asset list may include zero balances. Invalid assets or include values are rejected.
+
 **Push payload**:
 ```json
 {
   "channel": "account@portfolio",
   "data": {
     "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "valuationAsset": "USDC",
     "equity": "799.80",
     "totalDepositsUsd": "799.80",
     "totalBorrowsUsd": "0.00",
@@ -444,24 +461,21 @@ Unified portfolio metrics including initial and maintenance collateral, margin r
     "availableMargin": "768.18",
     "uniMMR": "16.68",
     "uniIMR": "25.00",
+    "balances": [{"asset": "USDC", "balance": "779.80", "price": "1.00"}],
+    "withdrawalLimits": [{"asset": "USDC", "maxWithdrawQty": "768.18", "status": "AVAILABLE", "reasons": []}],
     "time": 1713825891591
   }
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `subaccount` | string | Subaccount address |
-| `equity` | string | Net account value in USD |
-| `totalDepositsUsd` | string | Total USD value of deposited assets |
-| `totalBorrowsUsd` | string | Total USD value of borrowed assets |
-| `totalCollateral` | string | Total Collateral Value (maintenance-level). Sum of MAV + unrealized PnL + unsettled funding |
-| `initCollateral` | string | Total Initial Collateral Value. Aggregate IAV of all deposited assets |
-| `maintMarginReq` | string | Maintenance Margin Requirement (MMReq). Minimum collateral to avoid liquidation |
-| `initMarginReq` | string | Initial Margin Requirement (IMReq). Total initial-level liabilities — gating threshold for new positions |
-| `availableMargin` | string | Available margin for new positions and borrowing. `max(initCollateral - initMarginReq, 0)` |
-| `uniMMR` | string | `totalCollateral / maintMarginReq` — below `1.0` triggers liquidation |
-| `uniIMR` | string | `initCollateral / initMarginReq` — below `1.0` prevents opening new positions |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+`balances` is present only when requested with `include=balances`; `withdrawalLimits` is present only when requested with `include=withdrawalLimits`. `balance` and `maxWithdrawQty` use the asset's own unit. `price` is USDC per asset unit. Account valuation, collateral, margin requirements, and `availableMargin` use USDC.
 
-**Update cadence**: On any change to collateral or position state
+`maxWithdrawQty` is the maximum existing deposit quantity withdrawable to the wallet while retaining current positions, orders, and debt. It does not borrow, cancel orders, or close positions. Asset limits are conditional alternatives sharing the same account margin capacity; they must not be added together.
+
+`uniMMR` and `uniIMR` are unitless ratios. When the corresponding margin requirement is zero, the value is `null`, not `"0"`.
+
+**Update behavior**: The initial push and every subsequent push are complete snapshots for the requested view. A snapshot is refreshed when balances, orders, positions, prices, interest, funding, risk parameters, account restrictions, pool status, or pool liquidity changes the selected values. Balance changes alone are not the only trigger.
+
+All fields in one snapshot share the same source state and `time`; clients should replace the complete local view. The server may coalesce intermediate states and does not promise one message per chain event. Re-subscription after disconnect returns a complete snapshot.
+
+**REST equivalent**: `GET /v1/account/subaccounts/{address}/portfolio` accepts the same `include` and `assets` query parameters. For one asset, `GET /v1/account/subaccounts/{address}/withdrawal-limits/{asset}` returns the same withdrawal-limit object.

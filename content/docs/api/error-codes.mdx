@@ -137,6 +137,10 @@ On-chain errors identify a transaction that reached the trading chain and revert
 | `21_5` | Oracle | Maximum number of supported symbols has been reached. |
 | `21_6` | Oracle | Symbol exceeds the maximum allowed length. |
 | `21_7` | Oracle | Symbol already exists. |
+| `21_8` | Oracle | Oracle symbol is invalid or unsupported. |
+| `21_9` | Oracle | Oracle configuration is invalid. |
+| `21_10` | Oracle | No new spot price was accepted. |
+| `21_11` | Oracle | Development price overrides are disabled. |
 | `22_0` | PerpMarket | Perpetual market does not exist. |
 | `22_1` | PerpMarket | Market ID is invalid or not registered. |
 | `22_2` | PerpMarket | Perpetual market already exists. |
@@ -216,6 +220,7 @@ On-chain errors identify a transaction that reached the trading chain and revert
 | `22_76` | PerpMarket | This client order id (cloid) was already used by the subaccount. |
 | `22_77` | PerpMarket | Perpetual maker or taker fee rate is invalid. |
 | `22_78` | PerpMarket | No trigger perpetual order ID was supplied by the transaction origin. |
+| `22_79` | PerpMarket | Required oracle price is unavailable. |
 | `23_0` | InsuranceVault | Stake/unstake amount is zero. |
 | `23_1` | InsuranceVault | Account balance is insufficient for this operation. |
 | `23_2` | InsuranceVault | User has no stake record in this market. |

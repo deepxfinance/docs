@@ -474,6 +474,12 @@ Unified subaccount metrics. Account-level values are denominated in USDC. Balanc
 
 `uniMMR` and `uniIMR` are unitless ratios. When the corresponding margin requirement is zero, the value is `null`, not `"0"`.
 
+Ratios follow [MarginRatio](../../schemas/MarginRatio.yaml) in both the initial
+snapshot and subsequent updates. Null means no margin requirement, including
+0/0; it is not a liquidation signal. A positive requirement with zero collateral
+returns `"0"`. Clients must preserve null rather than convert it to zero or
+infinity. Failed calculations are errors, not null-valued successful snapshots.
+
 **Update behavior**: The initial push and every subsequent push are complete snapshots for the requested view. A snapshot is refreshed when balances, orders, positions, prices, interest, funding, risk parameters, account restrictions, pool status, or pool liquidity changes the selected values. Balance changes alone are not the only trigger.
 
 All fields in one snapshot share the same source state and `time`; clients should replace the complete local view. The server may coalesce intermediate states and does not promise one message per chain event. Re-subscription after disconnect returns a complete snapshot.

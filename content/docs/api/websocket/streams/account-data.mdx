@@ -484,4 +484,6 @@ infinity. Failed calculations are errors, not null-valued successful snapshots.
 
 All fields in one snapshot share the same source state and `time`; clients should replace the complete local view. The server may coalesce intermediate states and does not promise one message per chain event. Re-subscription after disconnect returns a complete snapshot.
 
+> **Known limitation (current implementation)**: the guarantee above is not yet enforced. Snapshot fields are assembled from multiple underlying reads that may reflect different chain blocks, so one message can combine values that never coexisted in a single block; the same applies when comparing values across separate messages or requests. `time` is the server wall-clock time rather than the timestamp of any source block. Risk-sensitive consumers (liquidation alerts, auto-deleveraging bots) must tolerate transiently inconsistent fields.
+
 **REST equivalent**: `GET /v1/account/subaccounts/{address}/portfolio` accepts the same `include` and `assets` query parameters. For one asset, `GET /v1/account/subaccounts/{address}/withdrawal-limits/{asset}` returns the same withdrawal-limit object.

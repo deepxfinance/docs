@@ -21,6 +21,7 @@
     "getSpotTrades",
     "getSubaccountBalances",
     "listSubaccountBalanceEvents",
+    "getSubaccountWithdrawalLimit",
     "listSubaccountLiquidations",
     "listPerpOrdersByTx",
     "listSpotOrdersByTx",

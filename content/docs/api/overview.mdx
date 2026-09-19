@@ -3,11 +3,25 @@ title: API Overview
 description: Current public API version and changelog.
 ---
 
-**Current API Version:** `1.1.0`
+**Current API Version:** `2.0.0`
 
 This version applies to the DeepX REST API, WebSocket API, and shared schemas.
 
 ## Changelog
+
+### v2.0.0 (2026-09-16)
+
+- Breaking response-contract correction: `uniMMR` and `uniIMR` are nullable.
+  A confirmed zero requirement returns null across REST and WebSocket. Positive
+  requirements return decimal ratio strings; dependency failures remain errors.
+- Existing `/v1` routes and subscription names are unchanged. This version marks
+  the response compatibility change; clients must support null before rollout.
+
+### v1.2.0 (2026-09-15)
+
+- Added optional portfolio expansions for balances and per-asset withdrawal limits.
+- Added asset filtering and the single-asset withdrawal-limit endpoint.
+- Standardized account valuation amounts and asset prices as USDC-denominated.
 
 ### v1.1.0 (2026-06-13)
 

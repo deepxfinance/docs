@@ -59,6 +59,17 @@ Pushes position state whenever size, entry price, or unrealized PnL changes.
 }
 ```
 
+The initial snapshot contains open positions only (`qty` greater than zero). If your subaccount has no open positions, `data` is an empty array:
+
+```json
+{
+  "channel": "account@perp-positions",
+  "data": []
+}
+```
+
+Use the snapshot as your complete current position list. In particular, replace any previously stored positions with an empty list when `data` is `[]`. `data` is always an array for an initial snapshot; it is never `null` or an object.
+
 **Incremental update** (single object):
 ```json
 {
@@ -86,7 +97,7 @@ Pushes position state whenever size, entry price, or unrealized PnL changes.
 | `symbol` | string | Perpetual market symbol |
 | `subaccount` | string | Subaccount address |
 | `side` | `"BUY"` \| `"SELL"` | Position direction (`BUY` = long, `SELL` = short) |
-| `qty` | string | Current position size in base asset |
+| `qty` | string | Current position size in base asset. `"0"` indicates that the position has closed |
 | `entryPrice` | string | Average entry price |
 | `effectiveLeverage` | string | Effective leverage cap in effect for this position |
 | `liqPrice` | string | Estimated liquidation price |
@@ -96,6 +107,34 @@ Pushes position state whenever size, entry price, or unrealized PnL changes.
 | `stopLoss` | string \| null | Stop-loss trigger price, if set |
 | `time` | int64 | Position open time (epoch ms) |
 | `updatedTime` | int64 | Last state change timestamp (epoch ms) |
+
+**When a position closes**: After a position is fully closed, including through liquidation, you receive one position update with `qty: "0"`. Remove the position identified by `subaccount` and `symbol` from your local list. A `qty: "0"` update can be the last update you receive after closing your final position; do not wait for an empty array. An empty array is only an initial snapshot.
+
+The update preserves the position's `side`, `entryPrice`, `effectiveLeverage`, and opening `time`. `fundingPayment` is its final cumulative value and `updatedTime` is the close time. As the position is no longer open, `unrealizedPnl` and `liqPrice` are `"0"`, and `takeProfit` and `stopLoss` are `null`.
+
+**Incremental update** (fully closed position):
+```json
+{
+  "channel": "account@perp-positions",
+  "data": {
+    "symbol": "ETH-USDC",
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "side": "BUY",
+    "qty": "0",
+    "entryPrice": "2025.48",
+    "effectiveLeverage": "10",
+    "liqPrice": "0",
+    "unrealizedPnl": "0",
+    "fundingPayment": "-0.139",
+    "takeProfit": null,
+    "stopLoss": null,
+    "time": 1713800000000,
+    "updatedTime": 1713825951591
+  }
+}
+```
+
+See [`PerpPosition`](../../schemas/PerpPosition.yaml) for the shared field reference. Zero-quantity updates apply only to this WebSocket stream. Initial snapshots and REST position lists contain open positions only.
 
 ---
 
@@ -462,28 +501,18 @@ Unified subaccount metrics. Account-level values are denominated in USDC. Balanc
     "uniMMR": "16.68",
     "uniIMR": "25.00",
     "balances": [{"asset": "USDC", "balance": "779.80", "price": "1.00"}],
-    "withdrawalLimits": [{"asset": "USDC", "maxWithdrawQty": "768.18", "status": "AVAILABLE", "reasons": []}],
+    "withdrawalLimits": [{"asset": "USDC", "maxWithdrawableQty": "768.18", "status": "AVAILABLE"}],
     "time": 1713825891591
   }
 }
 ```
 
-`balances` is present only when requested with `include=balances`; `withdrawalLimits` is present only when requested with `include=withdrawalLimits`. `balance` and `maxWithdrawQty` use the asset's own unit. `price` is USDC per asset unit. Account valuation, collateral, margin requirements, and `availableMargin` use USDC.
+`balances` and `withdrawalLimits` are returned only when requested through `include`. Balance quantities and withdrawal limits use the asset's own unit; prices and account-level amounts use USDC.
 
-`maxWithdrawQty` is the maximum existing deposit quantity withdrawable to the wallet while retaining current positions, orders, and debt. It does not borrow, cancel orders, or close positions. Asset limits are conditional alternatives sharing the same account margin capacity; they must not be added together.
+`maxWithdrawableQty` is calculated while retaining current positions, orders, and debt. Limits for different assets share the same account margin capacity and must not be added together. The limit is recalculated when a withdrawal is submitted.
 
-`uniMMR` and `uniIMR` are unitless ratios. When the corresponding margin requirement is zero, the value is `null`, not `"0"`.
+`AVAILABLE` means the limit was calculated and may be `"0"`. `UNAVAILABLE` means the limit could not be calculated and `maxWithdrawableQty` is `null`. `uniMMR` and `uniIMR` are unitless and are `null` when their corresponding margin requirement is zero.
 
-Ratios follow [MarginRatio](../../schemas/MarginRatio.yaml) in both the initial
-snapshot and subsequent updates. Null means no margin requirement, including
-0/0; it is not a liquidation signal. A positive requirement with zero collateral
-returns `"0"`. Clients must preserve null rather than convert it to zero or
-infinity. Failed calculations are errors, not null-valued successful snapshots.
-
-**Update behavior**: The initial push and every subsequent push are complete snapshots for the requested view. A snapshot is refreshed when balances, orders, positions, prices, interest, funding, risk parameters, account restrictions, pool status, or pool liquidity changes the selected values. Balance changes alone are not the only trigger.
-
-All fields in one snapshot share the same source state and `time`; clients should replace the complete local view. The server may coalesce intermediate states and does not promise one message per chain event. Re-subscription after disconnect returns a complete snapshot.
-
-> **Known limitation (current implementation)**: the guarantee above is not yet enforced. Snapshot fields are assembled from multiple underlying reads that may reflect different chain blocks, so one message can combine values that never coexisted in a single block; the same applies when comparing values across separate messages or requests. `time` is the server wall-clock time rather than the timestamp of any source block. Risk-sensitive consumers (liquidation alerts, auto-deleveraging bots) must tolerate transiently inconsistent fields.
+**Update behavior**: Each message is a complete snapshot for the requested view. Updates may be combined, so clients should replace the previous snapshot. Reconnecting and subscribing again returns a new snapshot.
 
 **REST equivalent**: `GET /v1/account/subaccounts/{address}/portfolio` accepts the same `include` and `assets` query parameters. For one asset, `GET /v1/account/subaccounts/{address}/withdrawal-limits/{asset}` returns the same withdrawal-limit object.

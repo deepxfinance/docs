@@ -1077,7 +1077,7 @@
                         "activeGrant",
                         "nothingToGrant"
                       ],
-                      "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n"
+                      "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n`claim` is a QuotaClaim object for `created`, `existing`, and `activeGrant`; null for `nothingToGrant`.\n"
                     },
                     "claim": {
                       "oneOf": [
@@ -1131,136 +1131,7 @@
                       "minimum": 0,
                       "description": "Portion of `unclaimed` awaiting grant confirmation."
                     }
-                  },
-                  "oneOf": [
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "created"
-                        },
-                        "claim": {
-                          "type": "object",
-                          "description": "Snapshot returned for an immediate quota grant request.",
-                          "required": [
-                            "quotaAmount",
-                            "status",
-                            "time"
-                          ],
-                          "properties": {
-                            "quotaAmount": {
-                              "type": "integer",
-                              "format": "int64",
-                              "minimum": 1,
-                              "description": "Quota included in the grant task."
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "pending",
-                                "submitted",
-                                "confirmed",
-                                "failed"
-                              ],
-                              "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                            },
-                            "time": {
-                              "type": "string",
-                              "format": "date-time",
-                              "description": "Grant request acceptance time."
-                            }
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "existing"
-                        },
-                        "claim": {
-                          "type": "object",
-                          "description": "Snapshot returned for an immediate quota grant request.",
-                          "required": [
-                            "quotaAmount",
-                            "status",
-                            "time"
-                          ],
-                          "properties": {
-                            "quotaAmount": {
-                              "type": "integer",
-                              "format": "int64",
-                              "minimum": 1,
-                              "description": "Quota included in the grant task."
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "pending",
-                                "submitted",
-                                "confirmed",
-                                "failed"
-                              ],
-                              "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                            },
-                            "time": {
-                              "type": "string",
-                              "format": "date-time",
-                              "description": "Grant request acceptance time."
-                            }
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "activeGrant"
-                        },
-                        "claim": {
-                          "type": "object",
-                          "description": "Snapshot returned for an immediate quota grant request.",
-                          "required": [
-                            "quotaAmount",
-                            "status",
-                            "time"
-                          ],
-                          "properties": {
-                            "quotaAmount": {
-                              "type": "integer",
-                              "format": "int64",
-                              "minimum": 1,
-                              "description": "Quota included in the grant task."
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "pending",
-                                "submitted",
-                                "confirmed",
-                                "failed"
-                              ],
-                              "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                            },
-                            "time": {
-                              "type": "string",
-                              "format": "date-time",
-                              "description": "Grant request acceptance time."
-                            }
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "nothingToGrant"
-                        },
-                        "claim": {
-                          "type": "null"
-                        }
-                      }
-                    }
-                  ]
+                  }
                 }
               }
             }
@@ -1859,7 +1730,7 @@
                               "RESTRICTED",
                               "UNAVAILABLE"
                             ],
-                            "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                            "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
                           },
                           "maxTransferableQty": {
                             "type": [
@@ -1867,56 +1738,9 @@
                               "null"
                             ],
                             "format": "decimal",
-                            "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+                            "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                           }
                         },
-                        "oneOf": [
-                          {
-                            "description": "Computed limit, no restriction found. Zero included.",
-                            "required": [
-                              "status",
-                              "maxTransferableQty"
-                            ],
-                            "properties": {
-                              "status": {
-                                "const": "AVAILABLE"
-                              },
-                              "maxTransferableQty": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          {
-                            "description": "Computed limit, but transfers out are blocked; amount is informational.",
-                            "required": [
-                              "status",
-                              "maxTransferableQty"
-                            ],
-                            "properties": {
-                              "status": {
-                                "const": "RESTRICTED"
-                              },
-                              "maxTransferableQty": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          {
-                            "description": "Calculation or state check failed.",
-                            "required": [
-                              "status",
-                              "maxTransferableQty"
-                            ],
-                            "properties": {
-                              "status": {
-                                "const": "UNAVAILABLE"
-                              },
-                              "maxTransferableQty": {
-                                "type": "null"
-                              }
-                            }
-                          }
-                        ],
                         "examples": [
                           {
                             "asset": "USDC",
@@ -2364,7 +2188,7 @@
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Open Positions",
+        "summary": "Get Subaccount Open Perpetual Positions",
         "security": [],
         "description": "Retrieves the current active perpetual positions for a specific subaccount.",
         "operationId": "getPerpPositions",
@@ -2705,7 +2529,7 @@
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Position History",
+        "summary": "Get Subaccount Perpetual Position History",
         "security": [],
         "description": "Retrieves historical (closed) perpetual position records for a specific subaccount.",
         "operationId": "getPerpPositionsHistory",
@@ -4585,7 +4409,7 @@
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Funding Payments",
+        "summary": "Get Subaccount Perpetual Funding Payments",
         "security": [],
         "description": "Retrieves historical perpetual funding payment records for a specific subaccount address.",
         "operationId": "getPerpFundingPayments",
@@ -7201,7 +7025,7 @@
                         "RESTRICTED",
                         "UNAVAILABLE"
                       ],
-                      "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                      "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
                     },
                     "maxTransferableQty": {
                       "type": [
@@ -7209,56 +7033,9 @@
                         "null"
                       ],
                       "format": "decimal",
-                      "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+                      "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                     }
                   },
-                  "oneOf": [
-                    {
-                      "description": "Computed limit, no restriction found. Zero included.",
-                      "required": [
-                        "status",
-                        "maxTransferableQty"
-                      ],
-                      "properties": {
-                        "status": {
-                          "const": "AVAILABLE"
-                        },
-                        "maxTransferableQty": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    {
-                      "description": "Computed limit, but transfers out are blocked; amount is informational.",
-                      "required": [
-                        "status",
-                        "maxTransferableQty"
-                      ],
-                      "properties": {
-                        "status": {
-                          "const": "RESTRICTED"
-                        },
-                        "maxTransferableQty": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    {
-                      "description": "Calculation or state check failed.",
-                      "required": [
-                        "status",
-                        "maxTransferableQty"
-                      ],
-                      "properties": {
-                        "status": {
-                          "const": "UNAVAILABLE"
-                        },
-                        "maxTransferableQty": {
-                          "type": "null"
-                        }
-                      }
-                    }
-                  ],
                   "examples": [
                     {
                       "asset": "USDC",
@@ -16847,7 +16624,7 @@
               "RESTRICTED",
               "UNAVAILABLE"
             ],
-            "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+            "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
           },
           "maxTransferableQty": {
             "type": [
@@ -16855,56 +16632,9 @@
               "null"
             ],
             "format": "decimal",
-            "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+            "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
           }
         },
-        "oneOf": [
-          {
-            "description": "Computed limit, no restriction found. Zero included.",
-            "required": [
-              "status",
-              "maxTransferableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "AVAILABLE"
-              },
-              "maxTransferableQty": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "description": "Computed limit, but transfers out are blocked; amount is informational.",
-            "required": [
-              "status",
-              "maxTransferableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "RESTRICTED"
-              },
-              "maxTransferableQty": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "description": "Calculation or state check failed.",
-            "required": [
-              "status",
-              "maxTransferableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "UNAVAILABLE"
-              },
-              "maxTransferableQty": {
-                "type": "null"
-              }
-            }
-          }
-        ],
         "examples": [
           {
             "asset": "USDC",
@@ -17903,7 +17633,7 @@
                     "RESTRICTED",
                     "UNAVAILABLE"
                   ],
-                  "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                  "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
                 },
                 "maxTransferableQty": {
                   "type": [
@@ -17911,56 +17641,9 @@
                     "null"
                   ],
                   "format": "decimal",
-                  "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+                  "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                 }
               },
-              "oneOf": [
-                {
-                  "description": "Computed limit, no restriction found. Zero included.",
-                  "required": [
-                    "status",
-                    "maxTransferableQty"
-                  ],
-                  "properties": {
-                    "status": {
-                      "const": "AVAILABLE"
-                    },
-                    "maxTransferableQty": {
-                      "type": "string"
-                    }
-                  }
-                },
-                {
-                  "description": "Computed limit, but transfers out are blocked; amount is informational.",
-                  "required": [
-                    "status",
-                    "maxTransferableQty"
-                  ],
-                  "properties": {
-                    "status": {
-                      "const": "RESTRICTED"
-                    },
-                    "maxTransferableQty": {
-                      "type": "string"
-                    }
-                  }
-                },
-                {
-                  "description": "Calculation or state check failed.",
-                  "required": [
-                    "status",
-                    "maxTransferableQty"
-                  ],
-                  "properties": {
-                    "status": {
-                      "const": "UNAVAILABLE"
-                    },
-                    "maxTransferableQty": {
-                      "type": "null"
-                    }
-                  }
-                }
-              ],
               "examples": [
                 {
                   "asset": "USDC",
@@ -18823,7 +18506,7 @@
               "activeGrant",
               "nothingToGrant"
             ],
-            "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n"
+            "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n`claim` is a QuotaClaim object for `created`, `existing`, and `activeGrant`; null for `nothingToGrant`.\n"
           },
           "claim": {
             "oneOf": [
@@ -18877,136 +18560,7 @@
             "minimum": 0,
             "description": "Portion of `unclaimed` awaiting grant confirmation."
           }
-        },
-        "oneOf": [
-          {
-            "properties": {
-              "outcome": {
-                "const": "created"
-              },
-              "claim": {
-                "type": "object",
-                "description": "Snapshot returned for an immediate quota grant request.",
-                "required": [
-                  "quotaAmount",
-                  "status",
-                  "time"
-                ],
-                "properties": {
-                  "quotaAmount": {
-                    "type": "integer",
-                    "format": "int64",
-                    "minimum": 1,
-                    "description": "Quota included in the grant task."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending",
-                      "submitted",
-                      "confirmed",
-                      "failed"
-                    ],
-                    "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                  },
-                  "time": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Grant request acceptance time."
-                  }
-                }
-              }
-            }
-          },
-          {
-            "properties": {
-              "outcome": {
-                "const": "existing"
-              },
-              "claim": {
-                "type": "object",
-                "description": "Snapshot returned for an immediate quota grant request.",
-                "required": [
-                  "quotaAmount",
-                  "status",
-                  "time"
-                ],
-                "properties": {
-                  "quotaAmount": {
-                    "type": "integer",
-                    "format": "int64",
-                    "minimum": 1,
-                    "description": "Quota included in the grant task."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending",
-                      "submitted",
-                      "confirmed",
-                      "failed"
-                    ],
-                    "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                  },
-                  "time": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Grant request acceptance time."
-                  }
-                }
-              }
-            }
-          },
-          {
-            "properties": {
-              "outcome": {
-                "const": "activeGrant"
-              },
-              "claim": {
-                "type": "object",
-                "description": "Snapshot returned for an immediate quota grant request.",
-                "required": [
-                  "quotaAmount",
-                  "status",
-                  "time"
-                ],
-                "properties": {
-                  "quotaAmount": {
-                    "type": "integer",
-                    "format": "int64",
-                    "minimum": 1,
-                    "description": "Quota included in the grant task."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending",
-                      "submitted",
-                      "confirmed",
-                      "failed"
-                    ],
-                    "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                  },
-                  "time": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Grant request acceptance time."
-                  }
-                }
-              }
-            }
-          },
-          {
-            "properties": {
-              "outcome": {
-                "const": "nothingToGrant"
-              },
-              "claim": {
-                "type": "null"
-              }
-            }
-          }
-        ]
+        }
       },
       "EmptyResponse": {
         "type": "object",

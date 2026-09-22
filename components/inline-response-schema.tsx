@@ -9,6 +9,7 @@ import {
   type SchemaUIOptions,
 } from '@fumadocs/api-docs/components/schema';
 import { AutoExpandResponseContext } from './openapi-operation-layout';
+import { withOwnSchemaDescriptions } from '../lib/schema-descriptions';
 
 interface SchemaTraversal {
   generated: SchemaUIGeneratedData;
@@ -20,7 +21,8 @@ export function InlineResponseSchema({ client, ...options }: SchemaUIOptions) {
   const expandAll = useContext(AutoExpandResponseContext);
   const { root, resolver, renderMarkdown, readOnly, writeOnly, showExample } = options;
   const generated = useMemo(() => generateSchemaUI({
-    root, resolver, renderMarkdown, readOnly, writeOnly, showExample,
+    ...withOwnSchemaDescriptions(root, resolver),
+    renderMarkdown, readOnly, writeOnly, showExample,
     labels: {
       default: 'Default', match: 'Match', format: 'Format', multipleOf: 'Multiple Of',
       range: 'Range', length: 'Length', properties: 'Properties', items: 'Items',

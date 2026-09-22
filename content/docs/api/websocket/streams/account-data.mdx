@@ -510,9 +510,7 @@ Unified subaccount metrics. Account-level values are denominated in USDC. Balanc
 
 `balances` and `transferLimits` are returned only when requested through `include`. Balance quantities and transfer limits use the asset's own unit; prices and account-level amounts use USDC.
 
-`maxTransferableQty` is calculated while retaining current positions, orders, and debt. It reflects the subscription's `autoBorrow` option, echoed in each transfer-limit object. Limits for different assets share the same account margin capacity and must not be added together. The limit is recalculated when a transfer or withdrawal is submitted.
-
-A requested asset whose limit fails keeps its entry with `status: UNAVAILABLE` rather than being omitted. See [`AccountTransferLimit`](/api/rest/account/getSubaccountTransferLimit) for the field reference, including `status` semantics and null vs `"0"`.
+`maxTransferableQty` is calculated while retaining current positions, orders, and debt. It reflects the subscription's `autoBorrow` option, echoed in each transfer-limit object. Limits for different assets share the same account margin capacity and must not be added together.See [`AccountTransferLimit`](/api/rest/account/getSubaccountTransferLimit) for the field reference, including `status` semantics and null vs `"0"`.
 
 `uniMMR` and `uniIMR` are unitless and are `null` when their corresponding margin requirement is zero.
 

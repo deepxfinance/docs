@@ -52,4 +52,4 @@ As a decentralized exchange, all on-chain data is publicly accessible.
 - **Numeric Precision** — All financial values (prices, quantities, fees) are transmitted as **strings** to prevent IEEE 754 precision loss during JSON parsing.
 - **Timestamps** — All `time` fields are Unix epoch milliseconds (`int64`).
 - **Schema Consistency** — WebSocket push payloads are structurally identical to their corresponding REST API response schemas.
-- **Update Cadence** — The DeepX matching engine processes one block approximately every **70ms**. Most streams push on each block. Change-triggered streams push only when data changes.
+- **Update Cadence** — Most streams are evaluated per block but push only when the data changes (change-triggered).

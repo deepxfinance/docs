@@ -3,8 +3,10 @@
 import { createOpenAPIPage } from 'fumadocs-openapi/ui';
 import { Schema, type SchemaUIOptions } from '@fumadocs/api-docs/components/schema';
 import { InlineResponseSchema } from './inline-response-schema';
+import { renderOperationLayout } from './openapi-operation-layout';
 
 export const OpenAPIPage = createOpenAPIPage({
+  content: { renderOperationLayout },
   schemaUI: {
     // Fumadocs passes client options at runtime but omits them from this hook's type.
     render(props: Omit<SchemaUIOptions, 'resolver' | 'renderMarkdown' | 'client'> & {

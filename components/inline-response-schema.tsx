@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useContext, useId, useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import {
   generateSchemaUI,
@@ -8,8 +8,16 @@ import {
   type SchemaUIGeneratedData,
   type SchemaUIOptions,
 } from '@fumadocs/api-docs/components/schema';
+import { AutoExpandResponseContext } from './openapi-operation-layout';
+
+interface SchemaTraversal {
+  generated: SchemaUIGeneratedData;
+  expandAll: boolean;
+  ancestors: string[];
+}
 
 export function InlineResponseSchema({ client, ...options }: SchemaUIOptions) {
+  const expandAll = useContext(AutoExpandResponseContext);
   const { root, resolver, renderMarkdown, readOnly, writeOnly, showExample } = options;
   const generated = useMemo(() => generateSchemaUI({
     root, resolver, renderMarkdown, readOnly, writeOnly, showExample,
@@ -20,15 +28,16 @@ export function InlineResponseSchema({ client, ...options }: SchemaUIOptions) {
     },
   }), [root, resolver, renderMarkdown, readOnly, writeOnly, showExample]);
   const schema = generated.refs[generated.$root];
+  const traversal = { generated, expandAll, ancestors: [generated.$root] };
 
   return (
     <div className="text-sm">
       {schema.type === 'primitive' ? (
-        <SchemaRow name={client.name} type={generated.$root} generated={generated} />
+        <SchemaRow name={client.name} type={generated.$root} {...traversal} />
       ) : (
         <>
           <Description schema={schema} />
-          <SchemaBody schema={schema} generated={generated} />
+          <SchemaBody schema={schema} {...traversal} />
         </>
       )}
     </div>
@@ -53,13 +62,13 @@ function Description({ schema }: { schema: SchemaData }) {
   );
 }
 
-function SchemaRow({ name, type, required, generated }: {
+function SchemaRow({ name, type, required, generated, expandAll, ancestors }: SchemaTraversal & {
   name: string;
   type: string;
   required?: boolean;
-  generated: SchemaUIGeneratedData;
 }) {
-  const [open, setOpen] = useState(false);
+  // Recursive references stay available to expand manually without rendering forever.
+  const [open, setOpen] = useState(expandAll && !ancestors.includes(type));
   const contentId = useId();
   const schema = generated.refs[type];
   const expandable = schema.type === 'array'
@@ -96,17 +105,18 @@ function SchemaRow({ name, type, required, generated }: {
       {expandable && (
         <div id={contentId} hidden={!open} className="ms-2 mt-2 border-s ps-3">
           {/* Mount children only when expanded, including recursive schemas. */}
-          {open && <SchemaBody schema={schema} generated={generated} />}
+          {open && <SchemaBody schema={schema} generated={generated} expandAll={expandAll} ancestors={[...ancestors, type]} />}
         </div>
       )}
     </div>
   );
 }
 
-function SchemaBody({ schema, generated }: { schema: SchemaData; generated: SchemaUIGeneratedData }) {
+function SchemaBody({ schema, ...traversal }: SchemaTraversal & { schema: SchemaData }) {
+  const { generated, ancestors } = traversal;
   if (schema.type === 'object') {
     return schema.props.map((prop) => (
-      <SchemaRow key={prop.name} name={prop.name} type={prop.$type} required={prop.required} generated={generated} />
+      <SchemaRow key={prop.name} name={prop.name} type={prop.$type} required={prop.required} {...traversal} />
     ));
   }
   if (schema.type === 'array') {
@@ -115,10 +125,10 @@ function SchemaBody({ schema, generated }: { schema: SchemaData; generated: Sche
     return item.type === 'object' ? (
       <>
         <Description schema={item} />
-        <SchemaBody schema={item} generated={generated} />
+        <SchemaBody schema={item} {...traversal} ancestors={[...ancestors, schema.item.$type]} />
       </>
     ) : (
-      <SchemaRow name="[index: integer]" type={schema.item.$type} generated={generated} />
+      <SchemaRow name="[index: integer]" type={schema.item.$type} {...traversal} />
     );
   }
   if (schema.type === 'or' || schema.type === 'and') {
@@ -126,7 +136,7 @@ function SchemaBody({ schema, generated }: { schema: SchemaData; generated: Sche
       <>
         <p className="my-2 text-fd-muted-foreground">{schema.type === 'or' ? 'One of' : 'All of'}</p>
         {schema.items.map((item, index) => (
-          <SchemaRow key={`${item.$type}:${index}`} name={item.name} type={item.$type} generated={generated} />
+          <SchemaRow key={`${item.$type}:${index}`} name={item.name} type={item.$type} {...traversal} />
         ))}
       </>
     );

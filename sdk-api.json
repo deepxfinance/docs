@@ -2,7 +2,7 @@
   "openapi": "3.2.0",
   "info": {
     "title": "DeepX API",
-    "version": "1.3.0",
+    "version": "1.4.1",
     "description": "# REST API Guide\n\n## General API Information\n\n- **Time Format**: All timestamps are in milliseconds (ms) by default.\n- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:\n  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.\n  * With `startTime`, returns oldest items from `startTime` up to the `limit`.\n  * With `endTime`, returns most recent items up to `endTime` and the `limit`.\n  * With both, behaves like `startTime` but does not exceed `endTime`.\n- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:\n  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.\n  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, and lending-market history use this pattern.\n  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.\n",
     "license": {
       "name": "MIT",
@@ -1639,7 +1639,7 @@
         ],
         "summary": "Get Subaccount Portfolio",
         "security": [],
-        "description": "Retrieves a unified portfolio summary, with optional balances and withdrawal limits.",
+        "description": "Retrieves a unified portfolio summary, with optional balances and transfer limits.",
         "operationId": "getSubaccountPortfolio",
         "parameters": [
           {
@@ -1658,7 +1658,7 @@
             "name": "include",
             "in": "query",
             "required": false,
-            "description": "Optional comma-separated expansions: balances and withdrawalLimits.",
+            "description": "Optional comma-separated expansions: balances and transferLimits.",
             "style": "form",
             "explode": false,
             "schema": {
@@ -1667,9 +1667,19 @@
                 "type": "string",
                 "enum": [
                   "balances",
-                  "withdrawalLimits"
+                  "transferLimits"
                 ]
               }
+            }
+          },
+          {
+            "name": "autoBorrow",
+            "in": "query",
+            "required": false,
+            "description": "Whether transferLimits expansions may include an amount that creates new debt. Defaults to false, which bounds the transferable quantity by the asset's account balance.\n",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -1822,65 +1832,86 @@
                       },
                       "description": "Included only when requested with `include=balances`."
                     },
-                    "withdrawalLimits": {
+                    "transferLimits": {
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "description": "Maximum amount of an asset that can be withdrawn from the subaccount while retaining its current positions, orders, and debt. The amount is recalculated when a withdrawal is submitted.\n",
+                        "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
                         "required": [
                           "asset",
-                          "maxWithdrawableQty",
-                          "status"
+                          "autoBorrow",
+                          "status",
+                          "maxTransferableQty"
                         ],
                         "properties": {
                           "asset": {
                             "type": "string",
                             "description": "Asset ticker symbol."
                           },
-                          "maxWithdrawableQty": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
-                            "format": "decimal",
-                            "description": "Maximum withdrawable quantity in the asset's own unit. A value of \"0\" means no amount is currently withdrawable. Null means the limit is unavailable.\n"
+                          "autoBorrow": {
+                            "type": "boolean",
+                            "description": "Whether the quote includes borrowing capacity that may create new debt. False bounds the transferable quantity by the asset's account balance.\n"
                           },
                           "status": {
                             "type": "string",
                             "enum": [
                               "AVAILABLE",
+                              "RESTRICTED",
                               "UNAVAILABLE"
                             ],
-                            "description": "Whether the limit was calculated. AVAILABLE includes a calculated value of zero; UNAVAILABLE means maxWithdrawableQty is null.\n"
+                            "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                          },
+                          "maxTransferableQty": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "decimal",
+                            "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                           }
                         },
                         "oneOf": [
                           {
-                            "description": "A computed limit, including zero.",
+                            "description": "Computed limit, no restriction found. Zero included.",
                             "required": [
                               "status",
-                              "maxWithdrawableQty"
+                              "maxTransferableQty"
                             ],
                             "properties": {
                               "status": {
                                 "const": "AVAILABLE"
                               },
-                              "maxWithdrawableQty": {
+                              "maxTransferableQty": {
                                 "type": "string"
                               }
                             }
                           },
                           {
-                            "description": "The limit cannot be computed reliably.",
+                            "description": "Computed limit, but transfers out are blocked; amount is informational.",
                             "required": [
                               "status",
-                              "maxWithdrawableQty"
+                              "maxTransferableQty"
+                            ],
+                            "properties": {
+                              "status": {
+                                "const": "RESTRICTED"
+                              },
+                              "maxTransferableQty": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "description": "Calculation or state check failed.",
+                            "required": [
+                              "status",
+                              "maxTransferableQty"
                             ],
                             "properties": {
                               "status": {
                                 "const": "UNAVAILABLE"
                               },
-                              "maxWithdrawableQty": {
+                              "maxTransferableQty": {
                                 "type": "null"
                               }
                             }
@@ -1888,18 +1919,32 @@
                         ],
                         "examples": [
                           {
-                            "asset": "ETH",
-                            "maxWithdrawableQty": "1.25",
-                            "status": "AVAILABLE"
+                            "asset": "USDC",
+                            "autoBorrow": false,
+                            "status": "AVAILABLE",
+                            "maxTransferableQty": "100"
+                          },
+                          {
+                            "asset": "USDC",
+                            "autoBorrow": true,
+                            "status": "AVAILABLE",
+                            "maxTransferableQty": "600"
                           },
                           {
                             "asset": "ETH",
-                            "maxWithdrawableQty": null,
-                            "status": "UNAVAILABLE"
+                            "autoBorrow": false,
+                            "status": "RESTRICTED",
+                            "maxTransferableQty": "1.25"
+                          },
+                          {
+                            "asset": "ETH",
+                            "autoBorrow": false,
+                            "status": "UNAVAILABLE",
+                            "maxTransferableQty": null
                           }
                         ]
                       },
-                      "description": "Included only when requested with `include=withdrawalLimits`. Limits for different assets share the same account margin capacity and are not additive.\n"
+                      "description": "Included only when requested with `include=transferLimits`. Limits for different assets share the same account margin capacity and are not additive.\n"
                     },
                     "time": {
                       "description": "Snapshot timestamp in milliseconds.",
@@ -7084,15 +7129,15 @@
         }
       }
     },
-    "/v1/account/subaccounts/{address}/withdrawal-limits/{asset}": {
+    "/v1/account/subaccounts/{address}/transfer-limits/{asset}": {
       "get": {
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Withdrawal Limit",
+        "summary": "Get Subaccount Transfer Limit",
         "security": [],
-        "description": "Retrieves the maximum amount of an asset that can be withdrawn while retaining the subaccount's current positions, orders, and debt. The quantity uses the asset's own unit and is recalculated when a withdrawal is submitted.\n",
-        "operationId": "getSubaccountWithdrawalLimit",
+        "description": "Retrieves the maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. When autoBorrow is enabled, the amount may include a new borrow after the complete transferable deposit has been removed. The quantity uses the asset's own unit and is recalculated when a transfer or withdrawal is submitted.\n",
+        "operationId": "getSubaccountTransferLimit",
         "parameters": [
           {
             "name": "address",
@@ -7114,70 +7159,101 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "autoBorrow",
+            "in": "query",
+            "required": false,
+            "description": "Whether the quote may include an amount that creates new debt. Defaults to false, which bounds the transferable quantity by the asset's account balance.\n",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Current withdrawal limit.",
+            "description": "Current transfer limit.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "description": "Maximum amount of an asset that can be withdrawn from the subaccount while retaining its current positions, orders, and debt. The amount is recalculated when a withdrawal is submitted.\n",
+                  "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
                   "required": [
                     "asset",
-                    "maxWithdrawableQty",
-                    "status"
+                    "autoBorrow",
+                    "status",
+                    "maxTransferableQty"
                   ],
                   "properties": {
                     "asset": {
                       "type": "string",
                       "description": "Asset ticker symbol."
                     },
-                    "maxWithdrawableQty": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "format": "decimal",
-                      "description": "Maximum withdrawable quantity in the asset's own unit. A value of \"0\" means no amount is currently withdrawable. Null means the limit is unavailable.\n"
+                    "autoBorrow": {
+                      "type": "boolean",
+                      "description": "Whether the quote includes borrowing capacity that may create new debt. False bounds the transferable quantity by the asset's account balance.\n"
                     },
                     "status": {
                       "type": "string",
                       "enum": [
                         "AVAILABLE",
+                        "RESTRICTED",
                         "UNAVAILABLE"
                       ],
-                      "description": "Whether the limit was calculated. AVAILABLE includes a calculated value of zero; UNAVAILABLE means maxWithdrawableQty is null.\n"
+                      "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                    },
+                    "maxTransferableQty": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "decimal",
+                      "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                     }
                   },
                   "oneOf": [
                     {
-                      "description": "A computed limit, including zero.",
+                      "description": "Computed limit, no restriction found. Zero included.",
                       "required": [
                         "status",
-                        "maxWithdrawableQty"
+                        "maxTransferableQty"
                       ],
                       "properties": {
                         "status": {
                           "const": "AVAILABLE"
                         },
-                        "maxWithdrawableQty": {
+                        "maxTransferableQty": {
                           "type": "string"
                         }
                       }
                     },
                     {
-                      "description": "The limit cannot be computed reliably.",
+                      "description": "Computed limit, but transfers out are blocked; amount is informational.",
                       "required": [
                         "status",
-                        "maxWithdrawableQty"
+                        "maxTransferableQty"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "RESTRICTED"
+                        },
+                        "maxTransferableQty": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "description": "Calculation or state check failed.",
+                      "required": [
+                        "status",
+                        "maxTransferableQty"
                       ],
                       "properties": {
                         "status": {
                           "const": "UNAVAILABLE"
                         },
-                        "maxWithdrawableQty": {
+                        "maxTransferableQty": {
                           "type": "null"
                         }
                       }
@@ -7185,16 +7261,36 @@
                   ],
                   "examples": [
                     {
-                      "asset": "ETH",
-                      "maxWithdrawableQty": "1.25",
-                      "status": "AVAILABLE"
+                      "asset": "USDC",
+                      "autoBorrow": false,
+                      "status": "AVAILABLE",
+                      "maxTransferableQty": "100"
+                    },
+                    {
+                      "asset": "USDC",
+                      "autoBorrow": true,
+                      "status": "AVAILABLE",
+                      "maxTransferableQty": "600"
                     },
                     {
                       "asset": "ETH",
-                      "maxWithdrawableQty": null,
-                      "status": "UNAVAILABLE"
+                      "autoBorrow": false,
+                      "status": "RESTRICTED",
+                      "maxTransferableQty": "1.25"
+                    },
+                    {
+                      "asset": "ETH",
+                      "autoBorrow": false,
+                      "status": "UNAVAILABLE",
+                      "maxTransferableQty": null
                     }
                   ]
+                },
+                "example": {
+                  "asset": "USDC",
+                  "autoBorrow": false,
+                  "status": "AVAILABLE",
+                  "maxTransferableQty": "100"
                 }
               }
             }
@@ -16726,6 +16822,116 @@
         ],
         "example": "USDC"
       },
+      "AccountTransferLimit": {
+        "type": "object",
+        "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
+        "required": [
+          "asset",
+          "autoBorrow",
+          "status",
+          "maxTransferableQty"
+        ],
+        "properties": {
+          "asset": {
+            "type": "string",
+            "description": "Asset ticker symbol."
+          },
+          "autoBorrow": {
+            "type": "boolean",
+            "description": "Whether the quote includes borrowing capacity that may create new debt. False bounds the transferable quantity by the asset's account balance.\n"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "RESTRICTED",
+              "UNAVAILABLE"
+            ],
+            "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+          },
+          "maxTransferableQty": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "decimal",
+            "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+          }
+        },
+        "oneOf": [
+          {
+            "description": "Computed limit, no restriction found. Zero included.",
+            "required": [
+              "status",
+              "maxTransferableQty"
+            ],
+            "properties": {
+              "status": {
+                "const": "AVAILABLE"
+              },
+              "maxTransferableQty": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "description": "Computed limit, but transfers out are blocked; amount is informational.",
+            "required": [
+              "status",
+              "maxTransferableQty"
+            ],
+            "properties": {
+              "status": {
+                "const": "RESTRICTED"
+              },
+              "maxTransferableQty": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "description": "Calculation or state check failed.",
+            "required": [
+              "status",
+              "maxTransferableQty"
+            ],
+            "properties": {
+              "status": {
+                "const": "UNAVAILABLE"
+              },
+              "maxTransferableQty": {
+                "type": "null"
+              }
+            }
+          }
+        ],
+        "examples": [
+          {
+            "asset": "USDC",
+            "autoBorrow": false,
+            "status": "AVAILABLE",
+            "maxTransferableQty": "100"
+          },
+          {
+            "asset": "USDC",
+            "autoBorrow": true,
+            "status": "AVAILABLE",
+            "maxTransferableQty": "600"
+          },
+          {
+            "asset": "ETH",
+            "autoBorrow": false,
+            "status": "RESTRICTED",
+            "maxTransferableQty": "1.25"
+          },
+          {
+            "asset": "ETH",
+            "autoBorrow": false,
+            "status": "UNAVAILABLE",
+            "maxTransferableQty": null
+          }
+        ]
+      },
       "Id": {
         "type": "string",
         "description": "A unique identifier. Always a string — compare by equality, do not parse as a number.",
@@ -17670,65 +17876,86 @@
             },
             "description": "Included only when requested with `include=balances`."
           },
-          "withdrawalLimits": {
+          "transferLimits": {
             "type": "array",
             "items": {
               "type": "object",
-              "description": "Maximum amount of an asset that can be withdrawn from the subaccount while retaining its current positions, orders, and debt. The amount is recalculated when a withdrawal is submitted.\n",
+              "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
               "required": [
                 "asset",
-                "maxWithdrawableQty",
-                "status"
+                "autoBorrow",
+                "status",
+                "maxTransferableQty"
               ],
               "properties": {
                 "asset": {
                   "type": "string",
                   "description": "Asset ticker symbol."
                 },
-                "maxWithdrawableQty": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "decimal",
-                  "description": "Maximum withdrawable quantity in the asset's own unit. A value of \"0\" means no amount is currently withdrawable. Null means the limit is unavailable.\n"
+                "autoBorrow": {
+                  "type": "boolean",
+                  "description": "Whether the quote includes borrowing capacity that may create new debt. False bounds the transferable quantity by the asset's account balance.\n"
                 },
                 "status": {
                   "type": "string",
                   "enum": [
                     "AVAILABLE",
+                    "RESTRICTED",
                     "UNAVAILABLE"
                   ],
-                  "description": "Whether the limit was calculated. AVAILABLE includes a calculated value of zero; UNAVAILABLE means maxWithdrawableQty is null.\n"
+                  "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                },
+                "maxTransferableQty": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "decimal",
+                  "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                 }
               },
               "oneOf": [
                 {
-                  "description": "A computed limit, including zero.",
+                  "description": "Computed limit, no restriction found. Zero included.",
                   "required": [
                     "status",
-                    "maxWithdrawableQty"
+                    "maxTransferableQty"
                   ],
                   "properties": {
                     "status": {
                       "const": "AVAILABLE"
                     },
-                    "maxWithdrawableQty": {
+                    "maxTransferableQty": {
                       "type": "string"
                     }
                   }
                 },
                 {
-                  "description": "The limit cannot be computed reliably.",
+                  "description": "Computed limit, but transfers out are blocked; amount is informational.",
                   "required": [
                     "status",
-                    "maxWithdrawableQty"
+                    "maxTransferableQty"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "RESTRICTED"
+                    },
+                    "maxTransferableQty": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "description": "Calculation or state check failed.",
+                  "required": [
+                    "status",
+                    "maxTransferableQty"
                   ],
                   "properties": {
                     "status": {
                       "const": "UNAVAILABLE"
                     },
-                    "maxWithdrawableQty": {
+                    "maxTransferableQty": {
                       "type": "null"
                     }
                   }
@@ -17736,18 +17963,32 @@
               ],
               "examples": [
                 {
-                  "asset": "ETH",
-                  "maxWithdrawableQty": "1.25",
-                  "status": "AVAILABLE"
+                  "asset": "USDC",
+                  "autoBorrow": false,
+                  "status": "AVAILABLE",
+                  "maxTransferableQty": "100"
+                },
+                {
+                  "asset": "USDC",
+                  "autoBorrow": true,
+                  "status": "AVAILABLE",
+                  "maxTransferableQty": "600"
                 },
                 {
                   "asset": "ETH",
-                  "maxWithdrawableQty": null,
-                  "status": "UNAVAILABLE"
+                  "autoBorrow": false,
+                  "status": "RESTRICTED",
+                  "maxTransferableQty": "1.25"
+                },
+                {
+                  "asset": "ETH",
+                  "autoBorrow": false,
+                  "status": "UNAVAILABLE",
+                  "maxTransferableQty": null
                 }
               ]
             },
-            "description": "Included only when requested with `include=withdrawalLimits`. Limits for different assets share the same account margin capacity and are not additive.\n"
+            "description": "Included only when requested with `include=transferLimits`. Limits for different assets share the same account margin capacity and are not additive.\n"
           },
           "time": {
             "description": "Snapshot timestamp in milliseconds.",
@@ -18871,81 +19112,6 @@
         "format": "decimal",
         "description": "Dimensionless collateral / margin-requirement ratio, never a percentage. Null means the corresponding margin requirement is confirmed to be zero, so the ratio is not applicable. This includes zero collateral / zero requirement. A string \"0\" is a computed ratio rounded to zero with a positive requirement (including zero collateral), and is distinct from null. Requirements displayed as rounded amounts must not be used to infer whether the raw requirement is zero. Clients must not compare null with the liquidation threshold or coerce it to zero or infinity. An unavailable calculation is an error, not null.\n",
         "example": "1.42"
-      },
-      "AccountWithdrawalLimit": {
-        "type": "object",
-        "description": "Maximum amount of an asset that can be withdrawn from the subaccount while retaining its current positions, orders, and debt. The amount is recalculated when a withdrawal is submitted.\n",
-        "required": [
-          "asset",
-          "maxWithdrawableQty",
-          "status"
-        ],
-        "properties": {
-          "asset": {
-            "type": "string",
-            "description": "Asset ticker symbol."
-          },
-          "maxWithdrawableQty": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "decimal",
-            "description": "Maximum withdrawable quantity in the asset's own unit. A value of \"0\" means no amount is currently withdrawable. Null means the limit is unavailable.\n"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "AVAILABLE",
-              "UNAVAILABLE"
-            ],
-            "description": "Whether the limit was calculated. AVAILABLE includes a calculated value of zero; UNAVAILABLE means maxWithdrawableQty is null.\n"
-          }
-        },
-        "oneOf": [
-          {
-            "description": "A computed limit, including zero.",
-            "required": [
-              "status",
-              "maxWithdrawableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "AVAILABLE"
-              },
-              "maxWithdrawableQty": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "description": "The limit cannot be computed reliably.",
-            "required": [
-              "status",
-              "maxWithdrawableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "UNAVAILABLE"
-              },
-              "maxWithdrawableQty": {
-                "type": "null"
-              }
-            }
-          }
-        ],
-        "examples": [
-          {
-            "asset": "ETH",
-            "maxWithdrawableQty": "1.25",
-            "status": "AVAILABLE"
-          },
-          {
-            "asset": "ETH",
-            "maxWithdrawableQty": null,
-            "status": "UNAVAILABLE"
-          }
-        ]
       },
       "PerpPosition": {
         "type": "object",

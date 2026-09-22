@@ -134,7 +134,7 @@ The update preserves the position's `side`, `entryPrice`, `effectiveLeverage`, a
 }
 ```
 
-See [`PerpPosition`](../../schemas/PerpPosition.yaml) for the shared field reference. Zero-quantity updates apply only to this WebSocket stream. Initial snapshots and REST position lists contain open positions only.
+See [`PerpPosition`](/api/rest/account/getPerpPositions) for the shared field reference. Zero-quantity updates apply only to this WebSocket stream. Initial snapshots and REST position lists contain open positions only.
 
 ---
 
@@ -231,7 +231,7 @@ Pushes order state as it transitions through its lifecycle: pending → open →
 }
 ```
 
-See [`PerpOrder`](../../schemas/PerpOrder.yaml) for the full field reference.
+See [`PerpOrder`](/api/rest/account/getPerpOrders) for the full field reference.
 
 ---
 
@@ -287,7 +287,7 @@ Pushes spot order state changes.
 
 **Incremental update** (single order object on any state change).
 
-See [`SpotOrder`](../../schemas/SpotOrder.yaml) for the full field reference.
+See [`SpotOrder`](/api/rest/account/getSpotOrders) for the full field reference.
 
 ---
 
@@ -336,7 +336,7 @@ Pushes each fill as it is matched, from the perspective of the scoped account.
 
 **Incremental update** (single fill object on new execution).
 
-See [`AccountPerpTrade`](../../schemas/AccountPerpTrade.yaml) for the full field reference.
+See [`AccountPerpTrade`](/api/rest/account/getPerpTrades) for the full field reference.
 
 ---
 
@@ -384,7 +384,7 @@ Pushes each spot fill from the perspective of the scoped account.
 
 **Incremental update** (single fill object on new execution).
 
-See [`AccountSpotTrade`](../../schemas/AccountSpotTrade.yaml) for the full field reference.
+See [`AccountSpotTrade`](/api/rest/account/getSpotTrades) for the full field reference.
 
 ---
 
@@ -450,7 +450,7 @@ For the full history of what caused each change, use the REST endpoint `GET /v1/
 
 ## 7. Portfolio Summary (`account@portfolio`)
 
-Unified subaccount metrics. Account-level values are denominated in USDC. Balance and withdrawal-limit expansions are optional; account risk calculations always include the complete subaccount.
+Unified subaccount metrics. Account-level values are denominated in USDC. Balance and transfer-limit expansions are optional; account risk calculations always include the complete subaccount.
 
 **Channel**: `account@portfolio`
 **Scope**: `subaccount` (required)
@@ -475,13 +475,14 @@ Unified subaccount metrics. Account-level values are denominated in USDC. Balanc
   "params": {
     "channel": "account@portfolio",
     "subaccount": "{SUBACCOUNT_ADDRESS}",
-    "include": ["balances", "withdrawalLimits"],
-    "assets": ["ETH", "USDC"]
+    "include": ["balances", "transferLimits"],
+    "assets": ["ETH", "USDC"],
+    "autoBorrow": true
   }
 }
 ```
 
-`include` supports `balances` and `withdrawalLimits`. `assets` filters only the requested expansion and never narrows account-level risk calculations. Omitting `assets` includes all non-zero assets; an explicit asset list may include zero balances. Invalid assets or include values are rejected.
+`include` supports `balances` and `transferLimits`. `assets` filters only the requested expansion and never narrows account-level risk calculations. Omitting `assets` includes all non-zero assets; an explicit asset list may include zero balances. `autoBorrow` defaults to false and controls how included `transferLimits` are calculated: false bounds `maxTransferableQty` by the asset's account balance; true may include an amount that creates new debt. Invalid assets, include values, or non-boolean `autoBorrow` values are rejected.
 
 **Push payload**:
 ```json
@@ -501,18 +502,20 @@ Unified subaccount metrics. Account-level values are denominated in USDC. Balanc
     "uniMMR": "16.68",
     "uniIMR": "25.00",
     "balances": [{"asset": "USDC", "balance": "779.80", "price": "1.00"}],
-    "withdrawalLimits": [{"asset": "USDC", "maxWithdrawableQty": "768.18", "status": "AVAILABLE"}],
+    "transferLimits": [{"asset": "USDC", "autoBorrow": false, "status": "AVAILABLE", "maxTransferableQty": "768.18"}],
     "time": 1713825891591
   }
 }
 ```
 
-`balances` and `withdrawalLimits` are returned only when requested through `include`. Balance quantities and withdrawal limits use the asset's own unit; prices and account-level amounts use USDC.
+`balances` and `transferLimits` are returned only when requested through `include`. Balance quantities and transfer limits use the asset's own unit; prices and account-level amounts use USDC.
 
-`maxWithdrawableQty` is calculated while retaining current positions, orders, and debt. Limits for different assets share the same account margin capacity and must not be added together. The limit is recalculated when a withdrawal is submitted.
+`maxTransferableQty` is calculated while retaining current positions, orders, and debt. It reflects the subscription's `autoBorrow` option, echoed in each transfer-limit object. Limits for different assets share the same account margin capacity and must not be added together. The limit is recalculated when a transfer or withdrawal is submitted.
 
-`AVAILABLE` means the limit was calculated and may be `"0"`. `UNAVAILABLE` means the limit could not be calculated and `maxWithdrawableQty` is `null`. `uniMMR` and `uniIMR` are unitless and are `null` when their corresponding margin requirement is zero.
+A requested asset whose limit fails keeps its entry with `status: UNAVAILABLE` rather than being omitted. See [`AccountTransferLimit`](/api/rest/account/getSubaccountTransferLimit) for the field reference, including `status` semantics and null vs `"0"`.
+
+`uniMMR` and `uniIMR` are unitless and are `null` when their corresponding margin requirement is zero.
 
 **Update behavior**: Each message is a complete snapshot for the requested view. Updates may be combined, so clients should replace the previous snapshot. Reconnecting and subscribing again returns a new snapshot.
 
-**REST equivalent**: `GET /v1/account/subaccounts/{address}/portfolio` accepts the same `include` and `assets` query parameters. For one asset, `GET /v1/account/subaccounts/{address}/withdrawal-limits/{asset}` returns the same withdrawal-limit object.
+**REST equivalent**: `GET /v1/account/subaccounts/{address}/portfolio` accepts the same `include`, `assets`, and `autoBorrow` parameters (as query parameters). For one asset, `GET /v1/account/subaccounts/{address}/transfer-limits/{asset}` returns the same transfer-limit object.

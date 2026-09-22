@@ -12,6 +12,18 @@ const defaultDocsRoot = path.resolve(scriptDir, '..');
 const defaultContractsRoot = path.resolve(defaultDocsRoot, '..', 'deepx-api-contracts');
 const errorCodesOutput = 'content/docs/api/error-codes.mdx';
 
+// Shared-schema links in contract Markdown (e.g. ../../schemas/PerpPosition.yaml)
+// are rewritten to the REST page documenting the same schema. Schemas without a
+// REST endpoint (e.g. Ticker, WebSocket-only) degrade to plain text.
+const schemaRestPages = {
+  PerpPosition: '/api/rest/account/getPerpPositions',
+  PerpOrder: '/api/rest/account/getPerpOrders',
+  SpotOrder: '/api/rest/account/getSpotOrders',
+  AccountPerpTrade: '/api/rest/account/getPerpTrades',
+  AccountSpotTrade: '/api/rest/account/getSpotTrades',
+  AccountTransferLimit: '/api/rest/account/getSubaccountTransferLimit',
+};
+
 const pages = [
   {
     source: 'v1/overview.md',
@@ -69,7 +81,7 @@ export async function syncContractDocs({ docsRoot = defaultDocsRoot, contractsRo
     const source = await readFile(sourcePath, 'utf8');
     const { title, body } = extractTitle(source);
     const frontmatter = `---\ntitle: ${title ?? page.title}\ndescription: ${page.description}\n---\n\n`;
-    await writeFile(outputPath, `${frontmatter}${body}`, 'utf8');
+    await writeFile(outputPath, `${frontmatter}${rewriteSchemaLinks(body)}`, 'utf8');
   }
 
   await ensureRestGuideNavigation(docsRoot);
@@ -197,6 +209,17 @@ function tableCell(value) {
     .replaceAll('|', '\\|')
     .replace(/\r?\n/g, ' ')
     .trim();
+}
+
+function rewriteSchemaLinks(body) {
+  return body.replaceAll(
+    /\[(`?)([A-Za-z]+)\1\]\([^)]*\/schemas\/\2\.ya?ml\)/g,
+    (link, ticks, name) => {
+      const restPage = schemaRestPages[name];
+      if (!restPage) return `\`${name}\``;
+      return `[\`${name}\`](${restPage})`;
+    },
+  );
 }
 
 function extractTitle(source) {

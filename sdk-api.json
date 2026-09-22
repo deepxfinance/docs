@@ -1836,7 +1836,7 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
+                        "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and other liabilities.\n",
                         "required": [
                           "asset",
                           "autoBorrow",
@@ -7178,7 +7178,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
+                  "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and other liabilities.\n",
                   "required": [
                     "asset",
                     "autoBorrow",
@@ -16824,7 +16824,7 @@
       },
       "AccountTransferLimit": {
         "type": "object",
-        "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
+        "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and other liabilities.\n",
         "required": [
           "asset",
           "autoBorrow",
@@ -17193,7 +17193,7 @@
       },
       "CandleUpdate": {
         "type": "object",
-        "description": "A live candle (OHLCV) update for the current open interval, pushed via WebSocket on every block. Represents the in-progress candle — `close` reflects the latest traded price and values will change until the interval closes.\n",
+        "description": "A live candle (OHLCV) update for the current open interval, pushed via WebSocket when new trades execute. Represents the in-progress candle — `close` reflects the latest traded price and values will change until the interval closes.\n",
         "required": [
           "symbol",
           "interval",
@@ -17880,7 +17880,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. Recalculated when a transfer or withdrawal is submitted.\n",
+              "description": "Maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and other liabilities.\n",
               "required": [
                 "asset",
                 "autoBorrow",

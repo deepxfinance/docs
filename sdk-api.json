@@ -1046,7 +1046,7 @@
                   },
                   "signature": {
                     "type": "string",
-                    "description": "EIP-191 signature of `message`, prefixed with `0x`.",
+                    "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized delegate addresses.",
                     "example": "0x..."
                   }
                 }
@@ -18364,7 +18364,7 @@
           },
           "signature": {
             "type": "string",
-            "description": "EIP-191 signature of `message`, prefixed with `0x`.",
+            "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized delegate addresses.",
             "example": "0x..."
           }
         }

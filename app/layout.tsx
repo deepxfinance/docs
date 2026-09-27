@@ -3,12 +3,14 @@ import { RootProvider } from 'fumadocs-ui/provider/next';
 import { Inter } from 'next/font/google';
 import 'katex/dist/katex.css';
 import { AISearchTrigger } from '@/components/search';
-import { ThemeFavicon } from '@/components/theme-favicon';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   icons: {
-    icon: [{ url: '/favicon-light.svg', type: 'image/svg+xml' }],
+    icon: [
+      { url: '/favicon-light.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
+      { url: '/favicon-dark.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+    ],
   },
 };
 
@@ -22,7 +24,6 @@ export default function Layout({ children }: LayoutProps<'/'>) {
       <body className="flex flex-col min-h-screen">
         <AISearchTrigger />
         <RootProvider>
-          <ThemeFavicon />
           {children}
         </RootProvider>
       </body>

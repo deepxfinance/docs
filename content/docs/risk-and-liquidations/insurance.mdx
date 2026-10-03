@@ -2,19 +2,30 @@
 title: Insurance
 ---
 
-What is the Insurance Fund?
-The Insurance Fund serves as the protocol's first line of defense to maintain solvency in the event of account bankruptcies.
+The Insurance Fund is a protocol reserve used to cover the final USDC shortfall from bankrupt accounts. It helps protect other participants when [liquidation](/risk-and-liquidations/liquidations) cannot recover enough value to repay an account's obligations.
 
-Why is it necessary?
-During periods of extreme volatility, accounts with insufficient margin may not be liquidated in time, resulting in negative balances (bad debt). The Insurance Fund absorbs these losses to keep the protocol solvent and ensure that profitable traders can be paid out.
+## One USDC Fund
 
-How is it funded?
-Insurance Funds are replenished through fees collected from liquidations, trading, and borrowing. Each fund operates as a separate pool:
+DeepX uses a single Insurance Fund across the unified account system. It is not divided into separate funds for each perpetual market, spot market, or borrowed asset.
 
-- **Perpetual markets**: Funded and settled in USDC; used to cover bankruptcies specific to each perpetual market.
+The fund pays shortfalls in USDC. It may hold other assets temporarily, but those assets do not count as available insurance until they have been converted into USDC. USDC already reserved for one liquidation is unavailable to other accounts.
 
-- **Spot markets**: Funded in USDC; used to cover USDC-denominated losses from the borrow market.
+## How the Fund Is Financed
 
-- **Borrow markets**: Funded in the borrowed asset; used to cover bankruptcies for that specific asset.
+Governance-defined portions of trading fees, borrow interest, and liquidation penalties contribute to the fund. Contributions received in other assets must be converted to USDC before they can cover a shortfall.
 
-Losses exceeding the insurance fund limits are handled through the protocol's socialized loss mechanism.
+The Liquidation Insurance Fee is separate from the liquidator's reward. It is no longer charged once an account is confirmed bankrupt, and it cannot create or increase bad debt.
+
+## When the Fund Pays
+
+An account below maintenance margin is subject to liquidation, but may still have positive equity. The Insurance Fund intervenes only when an account is bankrupt and available USDC meets the protocol's coverage requirement: the current USDC shortfall multiplied by a governance-set coverage multiplier of at least 1.
+
+The protocol reserves USDC for the bankrupt account while its positions, assets, and borrows are processed. After liquidation determines the final USDC shortfall, the fund pays that amount and releases unused reserves.
+
+Insurance coverage does not restore liquidated positions or reimburse trading losses and liquidation costs.
+
+## If Insurance Is Insufficient
+
+If available USDC does not meet the coverage requirement, the fund does not pay out for that liquidation. The protocol can first attempt orderbook matching or voluntary takeover at the bankruptcy price or better for the bankrupt account. If a shortfall remains, [auto-deleveraging (ADL)](/risk-and-liquidations/liquidations#auto-deleveraging-adl) reduces eligible counterparties' exposure to help resolve it.
+
+ADL can reduce eligible counterparties' perpetual positions or spot and borrow balances. If a shortfall remains unresolved, the bankrupt account stays locked for further processing.

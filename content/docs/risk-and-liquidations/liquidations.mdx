@@ -2,29 +2,106 @@
 title: Liquidations
 ---
 
-## What are liquidations?
+Liquidation reduces an account's positions and repays its borrows when it no longer has enough collateral to meet maintenance margin requirements. DeepX evaluates risk across your entire [Unified Account](/account/unified-account), so losses in one market can lead to liquidation of other positions or collateral in the same subaccount.
 
-Liquidations could happen to an account when its [Total Collateral Value (TCV)](/glossary#total-collateral-value-tcv) is less than or equal to its [Maintenance Margin Requirement](/glossary#maintenance-margin-requirement).
+Each [subaccount](/account/subaccounts) has its own margin pool and risk boundary. Collateral in another subaccount does not automatically protect the account being liquidated.
 
-## Liquidation mechanism
+## When Liquidation Starts
 
-DeepX utilizes a decentralized, gradual liquidation process.
+Your [Unified Maintenance Margin Ratio (uniMMR)](/glossary#unified-maintenance-margin-ratio-unimmr) measures your account's maintenance margin coverage:
 
-Once a user's Total Collateral Value falls below the Maintenance Margin Requirement, liquidations would be triggered.
+```math
+\text{uniMMR} = \frac{\text{TCV}}{\text{MMReq}}
+```
 
-Steps:
+Here, [Total Collateral Value (TCV)](/glossary#total-collateral-value-tcv) is your risk-adjusted collateral value, and [Maintenance Margin Requirement (MMReq)](/glossary#maintenance-margin-requirement-mmreq) is the maintenance-level requirement for your account's liabilities and positions.
 
-1. All open orders are canceled.
-2. Liquidators can then iteratively liquidate portions of the account's assets and liabilities over a throttled time window.
-3. If the uniMMR of the liquidated account recovers to above the target uniMMR (e.g., 1.02), the liquidation process will stop. Otherwise, it continues until the account is fully liquidated or the uniMMR recovers.
-4. If the account is fully liquidated but still under collateralized, it will be marked as bad debt and the insurance fund will cover the loss.
+| Account Health | What It Means |
+|:---|:---|
+| uniMMR below 1 | The account is eligible for liquidation. |
+| uniMMR from 1 to below 1.02 | A new liquidation is not triggered, but an account already in liquidation has not reached the stopping threshold. |
+| uniMMR at least 1.02 | Liquidation stops and the account unlocks, provided it is not bankrupt. |
 
-A separate fee, typically set higher than the standard taker fee for the market, will be applied to the liquidated amount to provide an incentive to liquidators.
+Before starting liquidation, the protocol settles PnL, funding payments, and borrow interest, then checks the account's health on-chain. Perpetual positions are valued using [Mark Price](/trading/index-price-mark-price#mark-price); spot collateral is valued using [Index Price](/trading/index-price-mark-price#index-price) and the applicable collateral weights.
 
-## Running a Liquidator Bot
+Liquidation is triggered by account health, rather than a fixed price for one position. Changes in collateral prices, other positions, funding payments, or borrow interest can all change when your account becomes eligible.
 
-Any participant can run a liquidation bot. There are two different kinds of liquidation.
-1. Liquidation in the order book: Liquidators can submit orders to liquidate the undercollateralized account. The liquidation process will be executed as normal order matching.
-2. Position transfers: Liquidations are executed as position transfers between the liquidatee's account and the liquidator's account, which requires the liquidator to have sufficient collateral deposited.
+## What Happens During Liquidation
 
-More details will be provided about how to run a liquidator bot.
+1. **The account is locked and all open orders are canceled.** While locked, you can only deposit collateral. You cannot place orders, withdraw, or manually trade your way out of liquidation.
+2. **Perpetual positions are reduced first.** Liquidators close or take over positions to reduce the account's risk.
+3. **Spot assets and borrows are handled next, if needed.** If no perpetual position can be liquidated further, or all perpetual positions have been handled and the account is still below the stopping threshold, spot assets are sold and the corresponding borrows are repaid.
+4. **Account health is checked after each operation.** The protocol recalculates equity and uniMMR, and checks whether bankruptcy handling is needed.
+5. **Liquidation stops when the account recovers.** A non-bankrupt account unlocks once uniMMR reaches at least 1.02. It can also unlock once all positions and borrows have been cleared and any bad debt has been handled.
+
+Liquidation can stop after only part of your portfolio has been reduced. It does not necessarily close every position or sell every asset. A price recovery or an additional deposit can also restore account health, but the protocol must confirm that the stopping conditions are met.
+
+**Example:** An account with TCV of 980 USDC and MMReq of 1,000 USDC has uniMMR of 0.98 and is eligible for liquidation. After positions are reduced and fees are settled, suppose TCV is 918 USDC and MMReq is 900 USDC. Its uniMMR is now 1.02, so liquidation stops if the account is not bankrupt. Recovering only to 1.01 would leave it in liquidation.
+
+If liquidity is unavailable or a price or risk check prevents further execution, the account can remain locked while waiting for further liquidation. A pause in execution does not mean the account has recovered.
+
+## How Positions and Assets Are Liquidated
+
+DeepX supports two execution methods. Both can be used during the same liquidation process, with each operation evaluated against the latest account state.
+
+### Orderbook Matching
+
+A liquidator submits an immediate-or-cancel (IOC) limit order on behalf of the account being liquidated. The order trades against available orders in the on-chain orderbook; any unfilled portion is canceled.
+
+A protection price limits how far the order's limit price can deviate from Mark Price. This helps limit unfavorable execution, but does not guarantee a fill. Actual proceeds depend on available liquidity and execution prices.
+
+### Incentivized Takeover
+
+A liquidator uses USDC to take over a specified perpetual position or spot asset directly, then bears its future price risk. The liquidator must satisfy its own margin requirements after the takeover.
+
+The takeover price includes a fixed reward for the liquidator:
+
+| Position or Asset Taken Over | Takeover Price |
+|:---|:---|
+| Long perpetual position or spot asset | `Mark Price × (1 − Takeover Reward)` |
+| Short perpetual position | `Mark Price × (1 + Takeover Reward)` |
+
+The reward rate is a governance parameter. It does not increase with the time the account spends in liquidation.
+
+## Liquidation Costs
+
+Liquidation realizes the PnL on positions that are closed or transferred. Execution prices and applicable liquidation costs can further reduce your account's remaining equity:
+
+- **Orderbook Liquidator Fee:** paid to the liquidator based on the notional value actually filled through the orderbook.
+- **Takeover Reward:** included in the takeover price when a position or asset is transferred directly. The Orderbook Liquidator Fee is not charged on the same takeover.
+- **Liquidation Insurance Fee:** charged separately under the protocol's fee rules and allocated to the [Insurance Fund](/risk-and-liquidations/insurance).
+
+These rates are set through governance. See [Market Rules and Specifications](/trading/market-specs) for the liquidation fee parameters.
+
+Once an account is confirmed bankrupt, no further Liquidation Insurance Fee is charged. This fee cannot create or increase bad debt.
+
+## Bankruptcy
+
+Being below maintenance margin does not necessarily mean your account is bankrupt. Bankruptcy is assessed using [Account Equity](/glossary#account-equity), without collateral risk weights, after PnL, funding payments, and borrow interest are settled. An account is bankrupt when its negative equity exceeds the protocol's rounding threshold.
+
+If the [Insurance Fund](/risk-and-liquidations/insurance) has enough available USDC under its coverage rules, it reserves funds while liquidation continues and covers the final USDC shortfall. The account retains a repayment obligation: subsequent deposits or profits first repay the fund's advance.
+
+If available insurance is insufficient, the protocol can first attempt orderbook matching or voluntary takeover at the bankruptcy price or better for the bankrupt account. If a shortfall remains, the protocol uses auto-deleveraging as described below.
+
+## Auto-Deleveraging (ADL)
+
+ADL reduces eligible counterparties' exposure to help resolve a bankrupt account's shortfall when available insurance is insufficient. It executes at protocol-determined bankruptcy prices, which allocate the uncovered shortfall across the account's remaining perpetual positions and eligible spot assets. These prices differ from the ordinary liquidation trigger: they are chosen to eliminate the allocated shortfall, rather than to determine when maintenance margin is insufficient.
+
+### How ADL Can Affect Other Traders
+
+For perpetuals, ADL can reduce your position even if your own account is healthy. Eligible counterparties hold an opposite position in the same market, have positive cumulative PnL since opening, and must remain above the required health buffer after execution.
+
+Candidates are ranked by **ADL Score = Cumulative PnL Ratio × Effective Leverage**. Cumulative PnL Ratio is the position's cumulative PnL since opening divided by its current notional value; Effective Leverage is its notional value divided by account equity. Higher scores are processed first. ADL reduces both sides' positions and can realize less profit than closing at Mark Price.
+
+Spot and borrow balances can also be affected. When a bankrupt account sells an asset, an eligible counterparty's borrow in that asset is reduced. When it buys an asset, an eligible counterparty's positive balance is reduced. These operations must satisfy balance limits and the counterparty health buffer.
+
+ADL stops once the uncovered shortfall is eliminated or reduced to the rounding threshold. It does not necessarily clear every asset and position. If the shortfall cannot be resolved, the bankrupt account remains locked for further processing.
+
+## Managing Your Liquidation Risk
+
+- Monitor uniMMR for the whole subaccount and keep a buffer above 1. A ratio just above the trigger leaves little room for price moves, funding, or interest.
+- Before liquidation starts, add collateral, reduce positions, or repay borrows to improve account health.
+- Consider collateral price risk as well as position risk. If your collateral falls in value at the same time as your positions lose money, both effects reduce your margin buffer.
+- Use separate subaccounts when you want independent risk boundaries, and fund each one accordingly.
+
+During liquidation, depositing collateral is the only action available to you. A deposit may help the account recover, but it does not reverse completed liquidations or their costs.

@@ -1004,7 +1004,7 @@
         ],
         "summary": "Claim Volume-Earned Quota",
         "security": [],
-        "description": "Requests an immediate grant of earned quota. The request requires a signature from the wallet in the URL and is accepted asynchronously. Reusing an `idempotencyKey` returns the original result.\n",
+        "description": "Requests an immediate grant of earned quota. The request requires a signature from the wallet in the URL or one of its authorized delegate addresses, and is accepted asynchronously. Reusing an `idempotencyKey` returns the original result.\n",
         "operationId": "createQuotaClaim",
         "parameters": [
           {
@@ -1046,7 +1046,7 @@
                   },
                   "signature": {
                     "type": "string",
-                    "description": "EIP-191 signature of `message`, prefixed with `0x`.",
+                    "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized delegate addresses.",
                     "example": "0x..."
                   }
                 }
@@ -1077,7 +1077,7 @@
                         "activeGrant",
                         "nothingToGrant"
                       ],
-                      "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n"
+                      "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n`claim` is a QuotaClaim object for `created`, `existing`, and `activeGrant`; null for `nothingToGrant`.\n"
                     },
                     "claim": {
                       "oneOf": [
@@ -1131,136 +1131,7 @@
                       "minimum": 0,
                       "description": "Portion of `unclaimed` awaiting grant confirmation."
                     }
-                  },
-                  "oneOf": [
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "created"
-                        },
-                        "claim": {
-                          "type": "object",
-                          "description": "Snapshot returned for an immediate quota grant request.",
-                          "required": [
-                            "quotaAmount",
-                            "status",
-                            "time"
-                          ],
-                          "properties": {
-                            "quotaAmount": {
-                              "type": "integer",
-                              "format": "int64",
-                              "minimum": 1,
-                              "description": "Quota included in the grant task."
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "pending",
-                                "submitted",
-                                "confirmed",
-                                "failed"
-                              ],
-                              "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                            },
-                            "time": {
-                              "type": "string",
-                              "format": "date-time",
-                              "description": "Grant request acceptance time."
-                            }
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "existing"
-                        },
-                        "claim": {
-                          "type": "object",
-                          "description": "Snapshot returned for an immediate quota grant request.",
-                          "required": [
-                            "quotaAmount",
-                            "status",
-                            "time"
-                          ],
-                          "properties": {
-                            "quotaAmount": {
-                              "type": "integer",
-                              "format": "int64",
-                              "minimum": 1,
-                              "description": "Quota included in the grant task."
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "pending",
-                                "submitted",
-                                "confirmed",
-                                "failed"
-                              ],
-                              "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                            },
-                            "time": {
-                              "type": "string",
-                              "format": "date-time",
-                              "description": "Grant request acceptance time."
-                            }
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "activeGrant"
-                        },
-                        "claim": {
-                          "type": "object",
-                          "description": "Snapshot returned for an immediate quota grant request.",
-                          "required": [
-                            "quotaAmount",
-                            "status",
-                            "time"
-                          ],
-                          "properties": {
-                            "quotaAmount": {
-                              "type": "integer",
-                              "format": "int64",
-                              "minimum": 1,
-                              "description": "Quota included in the grant task."
-                            },
-                            "status": {
-                              "type": "string",
-                              "enum": [
-                                "pending",
-                                "submitted",
-                                "confirmed",
-                                "failed"
-                              ],
-                              "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                            },
-                            "time": {
-                              "type": "string",
-                              "format": "date-time",
-                              "description": "Grant request acceptance time."
-                            }
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "properties": {
-                        "outcome": {
-                          "const": "nothingToGrant"
-                        },
-                        "claim": {
-                          "type": "null"
-                        }
-                      }
-                    }
-                  ]
+                  }
                 }
               }
             }
@@ -1859,7 +1730,7 @@
                               "RESTRICTED",
                               "UNAVAILABLE"
                             ],
-                            "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                            "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
                           },
                           "maxTransferableQty": {
                             "type": [
@@ -1867,56 +1738,9 @@
                               "null"
                             ],
                             "format": "decimal",
-                            "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+                            "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                           }
                         },
-                        "oneOf": [
-                          {
-                            "description": "Computed limit, no restriction found. Zero included.",
-                            "required": [
-                              "status",
-                              "maxTransferableQty"
-                            ],
-                            "properties": {
-                              "status": {
-                                "const": "AVAILABLE"
-                              },
-                              "maxTransferableQty": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          {
-                            "description": "Computed limit, but transfers out are blocked; amount is informational.",
-                            "required": [
-                              "status",
-                              "maxTransferableQty"
-                            ],
-                            "properties": {
-                              "status": {
-                                "const": "RESTRICTED"
-                              },
-                              "maxTransferableQty": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          {
-                            "description": "Calculation or state check failed.",
-                            "required": [
-                              "status",
-                              "maxTransferableQty"
-                            ],
-                            "properties": {
-                              "status": {
-                                "const": "UNAVAILABLE"
-                              },
-                              "maxTransferableQty": {
-                                "type": "null"
-                              }
-                            }
-                          }
-                        ],
                         "examples": [
                           {
                             "asset": "USDC",
@@ -2364,7 +2188,7 @@
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Open Positions",
+        "summary": "Get Subaccount Open Perpetual Positions",
         "security": [],
         "description": "Retrieves the current active perpetual positions for a specific subaccount.",
         "operationId": "getPerpPositions",
@@ -2705,7 +2529,7 @@
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Position History",
+        "summary": "Get Subaccount Perpetual Position History",
         "security": [],
         "description": "Retrieves historical (closed) perpetual position records for a specific subaccount.",
         "operationId": "getPerpPositionsHistory",
@@ -2901,7 +2725,7 @@
                               "realizedPnl": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Final profit or loss after closing.",
+                                "description": "Cumulative realized PnL over the position lifecycle, including amounts realized through partial closes and intermediate settlements. Excludes funding payments and trading fees.",
                                 "example": "0.0585"
                               },
                               "fundingPayment": {
@@ -4585,7 +4409,7 @@
         "tags": [
           "Account"
         ],
-        "summary": "Get Subaccount Funding Payments",
+        "summary": "Get Subaccount Perpetual Funding Payments",
         "security": [],
         "description": "Retrieves historical perpetual funding payment records for a specific subaccount address.",
         "operationId": "getPerpFundingPayments",
@@ -4941,8 +4765,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -5092,8 +4915,7 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC",
-                                  "DPX-USDC"
+                                  "SOL-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -5449,8 +5271,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -5499,8 +5320,7 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC",
-                          "DPX-USDC"
+                          "SOL-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -5852,8 +5672,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -5981,8 +5800,7 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC",
-                                  "DPX-USDC"
+                                  "SOL-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -7201,7 +7019,7 @@
                         "RESTRICTED",
                         "UNAVAILABLE"
                       ],
-                      "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                      "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
                     },
                     "maxTransferableQty": {
                       "type": [
@@ -7209,56 +7027,9 @@
                         "null"
                       ],
                       "format": "decimal",
-                      "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+                      "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                     }
                   },
-                  "oneOf": [
-                    {
-                      "description": "Computed limit, no restriction found. Zero included.",
-                      "required": [
-                        "status",
-                        "maxTransferableQty"
-                      ],
-                      "properties": {
-                        "status": {
-                          "const": "AVAILABLE"
-                        },
-                        "maxTransferableQty": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    {
-                      "description": "Computed limit, but transfers out are blocked; amount is informational.",
-                      "required": [
-                        "status",
-                        "maxTransferableQty"
-                      ],
-                      "properties": {
-                        "status": {
-                          "const": "RESTRICTED"
-                        },
-                        "maxTransferableQty": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    {
-                      "description": "Calculation or state check failed.",
-                      "required": [
-                        "status",
-                        "maxTransferableQty"
-                      ],
-                      "properties": {
-                        "status": {
-                          "const": "UNAVAILABLE"
-                        },
-                        "maxTransferableQty": {
-                          "type": "null"
-                        }
-                      }
-                    }
-                  ],
                   "examples": [
                     {
                       "asset": "USDC",
@@ -8771,8 +8542,7 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC",
-                          "DPX-USDC"
+                          "SOL-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -9592,8 +9362,7 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC",
-                        "DPX-USDC"
+                        "SOL-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -9935,8 +9704,7 @@
                 "enum": [
                   "BTC-USDC",
                   "ETH-USDC",
-                  "SOL-USDC",
-                  "DPX-USDC"
+                  "SOL-USDC"
                 ],
                 "example": "BTC-USDC"
               },
@@ -9982,8 +9750,7 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC",
-                          "DPX-USDC"
+                          "SOL-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -10251,8 +10018,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -10291,8 +10057,7 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC",
-                        "DPX-USDC"
+                        "SOL-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -10603,8 +10368,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -10979,8 +10743,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -11077,8 +10840,7 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC",
-                                  "DPX-USDC"
+                                  "SOL-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -11347,8 +11109,7 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC",
-                "DPX-USDC"
+                "SOL-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -11661,7 +11422,7 @@
         "tags": [
           "Perp Markets"
         ],
-        "summary": "List Perp Markets",
+        "summary": "List Markets",
         "security": [],
         "description": "Retrieves the trading and risk rules for all perpetual markets. If no markets match the provided filters, an empty array `[]` is returned.",
         "operationId": "listPerpMarkets",
@@ -12043,7 +11804,7 @@
         "tags": [
           "Perp Markets"
         ],
-        "summary": "Get a Perp Market",
+        "summary": "Get a Market",
         "security": [],
         "description": "Retrieves the trading and risk rules for a specified perpetual market.",
         "operationId": "getPerpMarket",
@@ -16807,8 +16568,7 @@
         "enum": [
           "BTC-USDC",
           "ETH-USDC",
-          "SOL-USDC",
-          "DPX-USDC"
+          "SOL-USDC"
         ],
         "example": "BTC-USDC"
       },
@@ -16847,7 +16607,7 @@
               "RESTRICTED",
               "UNAVAILABLE"
             ],
-            "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+            "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
           },
           "maxTransferableQty": {
             "type": [
@@ -16855,56 +16615,9 @@
               "null"
             ],
             "format": "decimal",
-            "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+            "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
           }
         },
-        "oneOf": [
-          {
-            "description": "Computed limit, no restriction found. Zero included.",
-            "required": [
-              "status",
-              "maxTransferableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "AVAILABLE"
-              },
-              "maxTransferableQty": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "description": "Computed limit, but transfers out are blocked; amount is informational.",
-            "required": [
-              "status",
-              "maxTransferableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "RESTRICTED"
-              },
-              "maxTransferableQty": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "description": "Calculation or state check failed.",
-            "required": [
-              "status",
-              "maxTransferableQty"
-            ],
-            "properties": {
-              "status": {
-                "const": "UNAVAILABLE"
-              },
-              "maxTransferableQty": {
-                "type": "null"
-              }
-            }
-          }
-        ],
         "examples": [
           {
             "asset": "USDC",
@@ -17206,30 +16919,9 @@
         ],
         "properties": {
           "symbol": {
-            "oneOf": [
-              {
-                "type": "string",
-                "description": "A spot market symbol.",
-                "enum": [
-                  "BTC-USDC",
-                  "ETH-USDC",
-                  "SOL-USDC",
-                  "DPX-USDC"
-                ],
-                "example": "BTC-USDC"
-              },
-              {
-                "type": "string",
-                "description": "A perpetual market symbol.",
-                "enum": [
-                  "BTC-USDC",
-                  "ETH-USDC",
-                  "SOL-USDC"
-                ],
-                "example": "BTC-USDC"
-              }
-            ],
-            "description": "Market symbol."
+            "type": "string",
+            "description": "Spot or perp market symbol.",
+            "example": "BTC-USDC"
           },
           "interval": {
             "type": "string",
@@ -17903,7 +17595,7 @@
                     "RESTRICTED",
                     "UNAVAILABLE"
                   ],
-                  "description": "AVAILABLE: limit calculated, no account or pool restriction found. RESTRICTED: limit calculated, but an account or pool state blocks transfers out; the amount is informational. UNAVAILABLE: calculation or a required state check failed.\n"
+                  "description": "AVAILABLE: limit calculated, no account or pool restriction found; maxTransferableQty is a string (\"0\" included). RESTRICTED: limit calculated, but an account or pool state blocks transfers out; maxTransferableQty is a string and informational only. UNAVAILABLE: calculation or a required state check failed; maxTransferableQty is null.\n"
                 },
                 "maxTransferableQty": {
                   "type": [
@@ -17911,56 +17603,9 @@
                     "null"
                   ],
                   "format": "decimal",
-                  "description": "Maximum transferable quantity in the asset's own unit. \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
+                  "description": "Maximum transferable quantity in the asset's own unit. A string when status is AVAILABLE or RESTRICTED; \"0\" means nothing is transferable. Null when UNAVAILABLE — the limit could not be computed and must not be replaced with \"0\".\n"
                 }
               },
-              "oneOf": [
-                {
-                  "description": "Computed limit, no restriction found. Zero included.",
-                  "required": [
-                    "status",
-                    "maxTransferableQty"
-                  ],
-                  "properties": {
-                    "status": {
-                      "const": "AVAILABLE"
-                    },
-                    "maxTransferableQty": {
-                      "type": "string"
-                    }
-                  }
-                },
-                {
-                  "description": "Computed limit, but transfers out are blocked; amount is informational.",
-                  "required": [
-                    "status",
-                    "maxTransferableQty"
-                  ],
-                  "properties": {
-                    "status": {
-                      "const": "RESTRICTED"
-                    },
-                    "maxTransferableQty": {
-                      "type": "string"
-                    }
-                  }
-                },
-                {
-                  "description": "Calculation or state check failed.",
-                  "required": [
-                    "status",
-                    "maxTransferableQty"
-                  ],
-                  "properties": {
-                    "status": {
-                      "const": "UNAVAILABLE"
-                    },
-                    "maxTransferableQty": {
-                      "type": "null"
-                    }
-                  }
-                }
-              ],
               "examples": [
                 {
                   "asset": "USDC",
@@ -18681,7 +18326,7 @@
           },
           "signature": {
             "type": "string",
-            "description": "EIP-191 signature of `message`, prefixed with `0x`.",
+            "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized delegate addresses.",
             "example": "0x..."
           }
         }
@@ -18718,93 +18363,6 @@
           }
         }
       },
-      "QuotaSummary": {
-        "type": "object",
-        "description": "Snapshot of a wallet's cumulative trading volume and quota accounting. Use this to understand how much quota has been earned, how much is already on-chain, and how much is available to claim.",
-        "required": [
-          "owner",
-          "subaccountCount",
-          "spotVolumeUsd",
-          "perpVolumeUsd",
-          "totalVolumeUsd",
-          "quotaEarned",
-          "quotaGranted",
-          "quotaReserved",
-          "quotaPending"
-        ],
-        "properties": {
-          "owner": {
-            "description": "Wallet address that owns the subaccounts and their trading volume.",
-            "type": "string",
-            "pattern": "^0x[a-fA-F0-9]{40}$",
-            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
-          },
-          "subaccountCount": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Number of subaccounts under this wallet that have trading activity."
-          },
-          "spotVolumeUsd": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Total spot trading volume across all subaccounts, in USD."
-          },
-          "perpVolumeUsd": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Total perpetual futures trading volume across all subaccounts, in USD."
-          },
-          "totalVolumeUsd": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Combined spot and perpetual trading volume across all subaccounts, in USD. Quota is earned based on this total (1 quota per 1 USDC, rounded down)."
-          },
-          "quotaEarned": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total free transaction quota earned from cumulative trading volume."
-          },
-          "quotaGranted": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Quota already confirmed on-chain via completed claims."
-          },
-          "quotaReserved": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Quota currently set aside for claims that are still in progress. Released back if the claim fails."
-          },
-          "quotaPending": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Quota available to claim right now. Calculated as quotaEarned minus quotaGranted minus quotaReserved."
-          },
-          "firstTradeTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "description": "Time of the earliest recorded trade across all subaccounts, or null if the wallet has never traded."
-          },
-          "lastTradeTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "description": "Time of the most recent recorded trade across all subaccounts, or null if the wallet has never traded."
-          },
-          "updatedTime": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "description": "Time the quota summary was last recalculated."
-          }
-        }
-      },
       "QuotaClaimResult": {
         "type": "object",
         "description": "Result of an immediate quota grant request.",
@@ -18823,7 +18381,7 @@
               "activeGrant",
               "nothingToGrant"
             ],
-            "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n"
+            "description": "`created` for a new task, `existing` for the same idempotency key,\n`activeGrant` for an in-progress grant, or `nothingToGrant` when no quota is available.\n`claim` is a QuotaClaim object for `created`, `existing`, and `activeGrant`; null for `nothingToGrant`.\n"
           },
           "claim": {
             "oneOf": [
@@ -18877,136 +18435,7 @@
             "minimum": 0,
             "description": "Portion of `unclaimed` awaiting grant confirmation."
           }
-        },
-        "oneOf": [
-          {
-            "properties": {
-              "outcome": {
-                "const": "created"
-              },
-              "claim": {
-                "type": "object",
-                "description": "Snapshot returned for an immediate quota grant request.",
-                "required": [
-                  "quotaAmount",
-                  "status",
-                  "time"
-                ],
-                "properties": {
-                  "quotaAmount": {
-                    "type": "integer",
-                    "format": "int64",
-                    "minimum": 1,
-                    "description": "Quota included in the grant task."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending",
-                      "submitted",
-                      "confirmed",
-                      "failed"
-                    ],
-                    "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                  },
-                  "time": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Grant request acceptance time."
-                  }
-                }
-              }
-            }
-          },
-          {
-            "properties": {
-              "outcome": {
-                "const": "existing"
-              },
-              "claim": {
-                "type": "object",
-                "description": "Snapshot returned for an immediate quota grant request.",
-                "required": [
-                  "quotaAmount",
-                  "status",
-                  "time"
-                ],
-                "properties": {
-                  "quotaAmount": {
-                    "type": "integer",
-                    "format": "int64",
-                    "minimum": 1,
-                    "description": "Quota included in the grant task."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending",
-                      "submitted",
-                      "confirmed",
-                      "failed"
-                    ],
-                    "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                  },
-                  "time": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Grant request acceptance time."
-                  }
-                }
-              }
-            }
-          },
-          {
-            "properties": {
-              "outcome": {
-                "const": "activeGrant"
-              },
-              "claim": {
-                "type": "object",
-                "description": "Snapshot returned for an immediate quota grant request.",
-                "required": [
-                  "quotaAmount",
-                  "status",
-                  "time"
-                ],
-                "properties": {
-                  "quotaAmount": {
-                    "type": "integer",
-                    "format": "int64",
-                    "minimum": 1,
-                    "description": "Quota included in the grant task."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending",
-                      "submitted",
-                      "confirmed",
-                      "failed"
-                    ],
-                    "description": "Grant status: `pending`, `submitted`, `confirmed`, or `failed`.\n"
-                  },
-                  "time": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Grant request acceptance time."
-                  }
-                }
-              }
-            }
-          },
-          {
-            "properties": {
-              "outcome": {
-                "const": "nothingToGrant"
-              },
-              "claim": {
-                "type": "null"
-              }
-            }
-          }
-        ]
+        }
       },
       "EmptyResponse": {
         "type": "object",
@@ -19323,7 +18752,7 @@
           "realizedPnl": {
             "type": "string",
             "format": "decimal",
-            "description": "Final profit or loss after closing.",
+            "description": "Cumulative realized PnL over the position lifecycle, including amounts realized through partial closes and intermediate settlements. Excludes funding payments and trading fees.",
             "example": "0.0585"
           },
           "fundingPayment": {
@@ -19771,8 +19200,7 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC",
-              "DPX-USDC"
+              "SOL-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -19939,8 +19367,7 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC",
-              "DPX-USDC"
+              "SOL-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -20355,8 +19782,7 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC",
-              "DPX-USDC"
+              "SOL-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -20572,8 +19998,7 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC",
-              "DPX-USDC"
+              "SOL-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -21850,8 +21275,7 @@
           "enum": [
             "BTC-USDC",
             "ETH-USDC",
-            "SOL-USDC",
-            "DPX-USDC"
+            "SOL-USDC"
           ],
           "example": "BTC-USDC"
         }
@@ -21868,8 +21292,7 @@
           "enum": [
             "BTC-USDC",
             "ETH-USDC",
-            "SOL-USDC",
-            "DPX-USDC"
+            "SOL-USDC"
           ],
           "example": "BTC-USDC"
         }

@@ -12,7 +12,8 @@ export function baseOptions(): BaseLayoutProps {
     nav: {
       title: (
         <>
-          <img alt="DeepX" src="/logo.png" className="w-8" />
+          <img alt="" src="/favicon-light.svg" className="w-8 dark:hidden" />
+          <img alt="" src="/favicon-dark.svg" className="hidden w-8 dark:block" />
           DeepX
         </>
       ),

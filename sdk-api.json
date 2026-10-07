@@ -2,7 +2,7 @@
   "openapi": "3.2.0",
   "info": {
     "title": "DeepX API",
-    "version": "1.4.1",
+    "version": "1.6.0",
     "description": "# REST API Guide\n\n## General API Information\n\n- **Time Format**: All timestamps are in milliseconds (ms) by default.\n- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:\n  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.\n  * With `startTime`, returns oldest items from `startTime` up to the `limit`.\n  * With `endTime`, returns most recent items up to `endTime` and the `limit`.\n  * With both, behaves like `startTime` but does not exceed `endTime`.\n- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:\n  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.\n  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, and lending-market history use this pattern.\n  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.\n",
     "license": {
       "name": "MIT",
@@ -405,8 +405,7 @@
                         "delegateName": "delegate_name",
                         "validUntil": "valid_until",
                         "mode": "mode (pallet_primitives::types::DelegateMode, only PlaceOrCancelOrder/Disable are assignable)",
-                        "createTime": "create_time",
-                        "active": "derived from DelegateInfo::is_active(now_ms) (`valid_until == 0 || valid_until > now_ms`)"
+                        "createTime": "create_time"
                       }
                     },
                     "properties": {
@@ -425,7 +424,7 @@
                         "type": "integer",
                         "format": "int64",
                         "minimum": 0,
-                        "description": "Unix timestamp in milliseconds when the delegate permission expires. `0` means the delegate never expires.\n",
+                        "description": "Unix timestamp in milliseconds when the delegate permission expires. `0` means the delegate never expires. Otherwise, permission has expired when the current Unix timestamp in milliseconds is greater than or equal to validUntil.\n",
                         "example": 1781964821000
                       },
                       "mode": {
@@ -434,7 +433,7 @@
                           "PlaceOrCancelOrder",
                           "Disable"
                         ],
-                        "description": "Delegate permission mode. `PlaceOrCancelOrder` grants order placement and cancellation and is the default. `Disable` suspends the delegate without removing it.\n",
+                        "description": "Delegate permission mode. `PlaceOrCancelOrder` grants order placement and cancellation and is the default. `Disable` suspends the delegate without removing it. Order permission requires mode=PlaceOrCancelOrder and an unexpired validUntil.\n",
                         "example": "PlaceOrCancelOrder"
                       },
                       "createTime": {
@@ -442,11 +441,6 @@
                         "format": "int64",
                         "description": "Unix timestamp in milliseconds when the delegate was first configured.",
                         "example": 1781964821000
-                      },
-                      "active": {
-                        "type": "boolean",
-                        "description": "Whether the delegate is currently usable. A delegate is active until it expires; a never-expiring delegate is always active.\n",
-                        "example": true
                       }
                     }
                   }
@@ -1004,7 +998,7 @@
         ],
         "summary": "Claim Volume-Earned Quota",
         "security": [],
-        "description": "Requests an immediate grant of earned quota. The request requires a signature from the wallet in the URL or one of its authorized delegate addresses, and is accepted asynchronously. Reusing an `idempotencyKey` returns the original result.\n",
+        "description": "Requests an immediate grant of earned quota. The request requires a signature from the wallet in the URL or one of its authorized, active, enabled delegate addresses, and is accepted asynchronously. The grant always goes to the wallet in the URL. Reusing an `idempotencyKey` returns the original result.\n",
         "operationId": "createQuotaClaim",
         "parameters": [
           {
@@ -1041,12 +1035,12 @@
                   },
                   "message": {
                     "type": "string",
-                    "description": "Exact EIP-191 `personal_sign` message. It must match the URL address and `idempotencyKey` and use LF line breaks.",
+                    "description": "Exact EIP-191 `personal_sign` message signed by the wallet or its active, enabled delegate. It must match the URL address and `idempotencyKey` and use LF line breaks.",
                     "example": "DeepX quota claim\nWallet: 0x2394487877bbcdd12f6a7a904fc8aedf3223fc50\nIdempotency-Key: 018f52bc-0f0b-7cc4-b356-a91f62c72e3f"
                   },
                   "signature": {
                     "type": "string",
-                    "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized delegate addresses.",
+                    "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized, active, enabled delegate addresses.",
                     "example": "0x..."
                   }
                 }
@@ -2232,7 +2226,7 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "description": "A perpetual position. REST position lists contain open positions only. In updates from that WebSocket stream, qty \"0\" means the position identified by (subaccount, symbol) has closed.",
+                    "description": "A perpetual position. REST position lists contain open positions only. In account@perp-positions WebSocket updates, qty \"0\" means the position identified by (subaccount, symbol) has closed.",
                     "required": [
                       "symbol",
                       "subaccount",
@@ -2241,7 +2235,9 @@
                       "entryPrice",
                       "effectiveLeverage",
                       "liqPrice",
+                      "realizedPnl",
                       "unrealizedPnl",
+                      "totalFee",
                       "takeProfit",
                       "stopLoss",
                       "time"
@@ -2275,13 +2271,13 @@
                       "qty": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Current position size in base asset. In account@perp-positions WebSocket updates, \"0\" means the position has closed.",
+                        "description": "Current remaining position quantity in base asset. \"0\" indicates a closing WebSocket update, not a historical position.",
                         "example": "0.01"
                       },
                       "entryPrice": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Average entry price of the position.",
+                        "description": "Average cost basis of the remaining position. Reductions and PnL settlements do not change it; increases reweight it by remaining quantity.",
                         "example": "2025.48"
                       },
                       "effectiveLeverage": {
@@ -2291,22 +2287,37 @@
                         "example": "10"
                       },
                       "liqPrice": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "decimal",
+                        "description": "Estimated liquidation price, or null when the position cannot be liquidated at any price. It is \"0\" when an account@perp-positions WebSocket update reports a closed position.",
+                        "example": "1850.00"
+                      },
+                      "realizedPnl": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Estimated liquidation price. It is \"0\" when an account@perp-positions WebSocket update reports a closed position.",
-                        "example": "1850.00"
+                        "description": "Price PnL realized so far in this position through partial closes and PnL settlements. Excludes funding and fees.",
+                        "example": "4.50"
                       },
                       "unrealizedPnl": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Floating PnL at the current mark price. It is \"0\" when an account@perp-positions WebSocket update reports a closed position.",
+                        "description": "Price PnL of the remaining position at the current mark price relative to its latest PnL settlement price. Excludes realized PnL, funding, and fees. \"0\" on a closing WebSocket update.",
                         "example": "12.50"
                       },
                       "fundingPayment": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Total funding payments accumulated for this position lifecycle.",
+                        "description": "Net funding payments for this position; positive means income.",
                         "example": "-0.13816"
+                      },
+                      "totalFee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "Net fees charged for this position, including trading, liquidation, and any ADL fees, net of rebates. Positive means a cost.",
+                        "example": "0.004044"
                       },
                       "takeProfit": {
                         "type": [
@@ -2707,37 +2718,37 @@
                               "qty": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Maximum size of the position during its lifecycle.",
+                                "description": "Total quantity closed in this position, equal to the total quantity opened; not the maximum simultaneous position size.",
                                 "example": "0.01"
                               },
                               "entryPrice": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Average entry price.",
+                                "description": "Quantity-weighted average of all opening executions for this position, including increases after partial closes.",
                                 "example": "2019.63"
                               },
                               "closePrice": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Average exit price.",
+                                "description": "Quantity-weighted average of all closing executions for this position, including partial closes, liquidations, and ADL.",
                                 "example": "2025.48"
                               },
                               "realizedPnl": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Cumulative realized PnL over the position lifecycle, including amounts realized through partial closes and intermediate settlements. Excludes funding payments and trading fees.",
+                                "description": "Final price PnL for this position, including partial closes and intermediate PnL settlements. Excludes funding and fees. Long is (closePrice - entryPrice) times qty; short is (entryPrice - closePrice) times qty, subject to rounding.",
                                 "example": "0.0585"
                               },
                               "fundingPayment": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Net funding payments paid or received.",
+                                "description": "Net funding payments for this position; positive means income.",
                                 "example": "-0.013816"
                               },
                               "totalFee": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Total trading fees paid.",
+                                "description": "Net fees charged for this position, including trading, liquidation, and any ADL fees, net of rebates. Positive means a cost.",
                                 "example": "0.004044"
                               },
                               "openTime": {
@@ -6474,7 +6485,7 @@
                                 "example": "USDC"
                               },
                               "time": {
-                                "description": "Timestamp of the event (epoch ms).",
+                                "description": "Timestamp of the event (Unix timestamp in milliseconds).",
                                 "type": "integer",
                                 "format": "int64",
                                 "minimum": 1000000000000,
@@ -7249,7 +7260,7 @@
         ],
         "summary": "List Subaccount Liquidation Records",
         "security": [],
-        "description": "Retrieves a paginated log of all liquidation events for a subaccount, including both perp and spot liquidations and bankruptcies. Supports optional filtering by liquidator, liquidation type, and symbol.\n",
+        "description": "Retrieves a cursor-paginated log of perpetual and spot liquidation records for a subaccount, including takeovers, ADL fills, and cancellation-only records.\n",
         "operationId": "listSubaccountLiquidations",
         "parameters": [
           {
@@ -7321,7 +7332,7 @@
             "name": "liquidator",
             "in": "query",
             "required": false,
-            "description": "Filter by liquidator subaccount address.",
+            "description": "Filter by executing liquidator or ADL counterparty subaccount address.",
             "schema": {
               "type": "string",
               "pattern": "^0x[a-fA-F0-9]{40}$",
@@ -7337,12 +7348,10 @@
             "example": "LIQUIDATE_PERP",
             "schema": {
               "type": "string",
-              "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Normal perp position liquidation. |\n| `LIQUIDATE_SPOT` | Normal spot position liquidation. |\n| `PERP_BANKRUPTCY` | Perp position bankruptcy (position cannot cover debt). |\n| `SPOT_BANKRUPTCY` | Spot position bankruptcy (position cannot cover debt). |\n",
+              "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Perpetual liquidation. |\n| `LIQUIDATE_SPOT` | Spot or lending liquidation. |\n\nEach type includes orderbook execution, takeover, ADL, and cancellation-only records.\n",
               "enum": [
                 "LIQUIDATE_PERP",
-                "LIQUIDATE_SPOT",
-                "PERP_BANKRUPTCY",
-                "SPOT_BANKRUPTCY"
+                "LIQUIDATE_SPOT"
               ],
               "example": "LIQUIDATE_PERP"
             }
@@ -7351,7 +7360,7 @@
             "name": "symbol",
             "in": "query",
             "required": false,
-            "description": "Filter by market symbol.",
+            "description": "Filter by market symbol. Cancellation-only records without a market are excluded when this filter is supplied.",
             "schema": {
               "type": "string",
               "example": "BTC-USDC"
@@ -7400,7 +7409,7 @@
                           "type": "array",
                           "items": {
                             "type": "object",
-                            "description": "A liquidation event for a subaccount. Combines on-chain event data with indexer-supplied block metadata.\nType-specific fields live inside `detail`. The variant is determined\n by `liqType`.\n",
+                            "description": "A subaccount liquidation record for orderbook execution, incentivized takeover, ADL, or order cancellations.\n",
                             "required": [
                               "id",
                               "liqId",
@@ -7429,7 +7438,7 @@
                                 "marginFreed": "margin_freed",
                                 "canceledOrders": "canceled_order_ids",
                                 "bankrupt": "bankrupt",
-                                "detail": "liquidation_type payload (one of LiquidatePerpDetail, LiquidateSpotDetail, PerpBankruptcyDetail, SpotBankruptcyDetail)",
+                                "detail": "liquidation_type payload (one of LiquidatePerpDetail, LiquidateSpotDetail)",
                                 "id": "(indexer) global cursor",
                                 "time": "(indexer) block timestamp",
                                 "txHash": "(indexer) extrinsic hash",
@@ -7446,11 +7455,11 @@
                                 "type": "integer",
                                 "format": "int32",
                                 "minimum": 0,
-                                "description": "Sequence id of this liquidation, scoped to the subaccount.",
+                                "description": "Liquidation round ID, scoped to the subaccount. Shared by all records in the round.",
                                 "example": 3
                               },
                               "time": {
-                                "description": "Block timestamp when the liquidation event was emitted (epoch ms).",
+                                "description": "Block timestamp when the liquidation event was emitted (Unix timestamp in milliseconds).",
                                 "type": "integer",
                                 "format": "int64",
                                 "minimum": 1000000000000,
@@ -7464,28 +7473,26 @@
                                 "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
                               },
                               "liquidator": {
-                                "description": "Liquidator subaccount address.",
+                                "description": "Executing liquidator for ordinary liquidation, or the counterparty whose risk is reduced for ADL. Not necessarily the transaction submitter.",
                                 "type": "string",
                                 "pattern": "^0x[a-fA-F0-9]{40}$",
                                 "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
                               },
                               "liqType": {
                                 "type": "string",
-                                "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Normal perp position liquidation. |\n| `LIQUIDATE_SPOT` | Normal spot position liquidation. |\n| `PERP_BANKRUPTCY` | Perp position bankruptcy (position cannot cover debt). |\n| `SPOT_BANKRUPTCY` | Spot position bankruptcy (position cannot cover debt). |\n",
+                                "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Perpetual liquidation. |\n| `LIQUIDATE_SPOT` | Spot or lending liquidation. |\n\nEach type includes orderbook execution, takeover, ADL, and cancellation-only records.\n",
                                 "enum": [
                                   "LIQUIDATE_PERP",
-                                  "LIQUIDATE_SPOT",
-                                  "PERP_BANKRUPTCY",
-                                  "SPOT_BANKRUPTCY"
+                                  "LIQUIDATE_SPOT"
                                 ],
                                 "example": "LIQUIDATE_PERP"
                               },
                               "detail": {
-                                "description": "Type-specific details. The variant is determined by `liqType`:\n- `LIQUIDATE_PERP`   → LiqDetailPerp - `LIQUIDATE_SPOT`   → LiqDetailSpot - `PERP_BANKRUPTCY`  → PerpBankruptcyDetail - `SPOT_BANKRUPTCY`  → SpotBankruptcyDetail\n",
+                                "description": "Type-specific details. The variant is determined by `liqType`:\n- `LIQUIDATE_PERP`   → LiqDetailPerp - `LIQUIDATE_SPOT`   → LiqDetailSpot\n",
                                 "oneOf": [
                                   {
                                     "type": "object",
-                                    "description": "Detail for a perpetual position liquidation (`LIQUIDATE_PERP`).",
+                                    "description": "Perpetual liquidation details. A cancellation-only record has zero quantity, order IDs, and fees.\n",
                                     "required": [
                                       "marketId",
                                       "settlementPrice",
@@ -7519,7 +7526,7 @@
                                       "settlementPrice": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Settlement price at the moment of liquidation.",
+                                        "description": "Reference price in USDC. Ordinary orderbook and takeover records contain the mark price; ADL records contain the bankruptcy execution price. May be zero for a cancellation-only record.\n",
                                         "example": "84518.94"
                                       },
                                       "liquidateBaseQty": {
@@ -7529,36 +7536,32 @@
                                         "example": "10.863"
                                       },
                                       "targetAccountOrderId": {
-                                        "type": "integer",
-                                        "format": "int32",
-                                        "minimum": 0,
-                                        "description": "Reduce-only order ID placed for the liquidated subaccount.",
-                                        "example": 42
+                                        "description": "Order ID used to reduce the liquidated subaccount's position. \"0\" when no order was placed.",
+                                        "example": "42",
+                                        "type": "string"
                                       },
                                       "liquidatorOrderId": {
-                                        "type": "integer",
-                                        "format": "int32",
-                                        "minimum": 0,
-                                        "description": "Order ID used by the liquidator. `0` when no liquidator order placed.\n",
-                                        "example": 17
+                                        "description": "Order ID used by the takeover or ADL counterparty. \"0\" for orderbook liquidation or when no counterparty order was placed.\n",
+                                        "example": "17",
+                                        "type": "string"
                                       },
                                       "liquidatorFee": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Fee paid to the liquidator, in quote asset.",
+                                        "description": "Liquidator reward in USDC. Zero for ADL and cancellation-only records.\n",
                                         "example": "0.196052"
                                       },
                                       "insuranceFundFee": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Fee paid to the insurance fund, in quote asset.",
+                                        "description": "Insurance fund fee in USDC. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
                                         "example": "0"
                                       }
                                     }
                                   },
                                   {
                                     "type": "object",
-                                    "description": "Detail for a spot position liquidation (`LIQUIDATE_SPOT`).\n",
+                                    "description": "Spot or lending liquidation details.",
                                     "required": [
                                       "assetSymbol",
                                       "assetPrice",
@@ -7566,6 +7569,7 @@
                                       "liabilitySymbol",
                                       "liabilityPrice",
                                       "liabilityTransferQty",
+                                      "liquidatorFee",
                                       "insuranceFundFee"
                                     ],
                                     "x-on-chain": {
@@ -7578,173 +7582,56 @@
                                         "liabilitySymbol": "liability_symbol",
                                         "liabilityPrice": "liability_price",
                                         "liabilityTransferQty": "liability_liquidate_transfer_amount",
+                                        "liquidatorFee": "liquidator_fee",
                                         "insuranceFundFee": "if_fee"
                                       }
                                     },
                                     "properties": {
                                       "assetSymbol": {
                                         "type": "string",
-                                        "description": "Collateral asset ticker transferred to the liquidator.",
+                                        "description": "Asset ticker sold or transferred from the liquidated subaccount.",
                                         "example": "BTC"
                                       },
                                       "assetPrice": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Price of the collateral asset at liquidation.",
+                                        "description": "Reference price of the transferred asset, in USDC. May reflect ADL pricing. Zero for a cancellation-only record.",
                                         "example": "84518.94"
                                       },
                                       "assetTransferQty": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Collateral asset quantity transferred to the liquidator.",
+                                        "description": "Asset quantity sold or transferred. Zero when only orders were canceled.",
                                         "example": "10.863"
                                       },
                                       "liabilitySymbol": {
                                         "type": "string",
-                                        "description": "Liability (borrowed) asset ticker assumed by the liquidator.",
+                                        "description": "Asset ticker received to reduce the liquidated subaccount's liability.",
                                         "example": "USDC"
                                       },
                                       "liabilityPrice": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Price of the liability asset at liquidation.",
+                                        "description": "Reference price of the liability asset, in USDC. Zero for a cancellation-only record.",
                                         "example": "1.0"
                                       },
                                       "liabilityTransferQty": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Liability asset quantity assumed by the liquidator.",
+                                        "description": "Liability asset quantity received through the liquidation, before any applicable insurance fund fee.",
                                         "example": "5000.0"
+                                      },
+                                      "liquidatorFee": {
+                                        "type": "string",
+                                        "format": "decimal",
+                                        "description": "Liquidator reward recorded in USDC. For a takeover, this represents the reward embedded in the asset transfer, not an additional payment. Zero for ADL and cancellation-only records.\n",
+                                        "example": "2.5"
                                       },
                                       "insuranceFundFee": {
                                         "type": "string",
                                         "format": "decimal",
-                                        "description": "Fee paid to the insurance fund, in liability asset.",
+                                        "description": "Insurance fund fee recorded in USDC, even when collected in another asset. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
                                         "example": "0"
-                                      }
-                                    }
-                                  },
-                                  {
-                                    "type": "object",
-                                    "description": "Detail for a perpetual position bankruptcy (`PERP_BANKRUPTCY`).\nEmitted when a perp position cannot cover its debt. The insurance fund pays the shortfall and may claw back profitable counterparty accounts.\n",
-                                    "required": [
-                                      "marketId",
-                                      "pnl",
-                                      "insuranceFundPayment",
-                                      "cumulativeFundingRateDelta"
-                                    ],
-                                    "x-on-chain": {
-                                      "struct": "PerpBankruptcyDetail",
-                                      "registry": "pallets/primitives/src/types.rs",
-                                      "mappings": {
-                                        "marketId": "market_index",
-                                        "pnl": "pnl",
-                                        "insuranceFundPayment": "if_payment",
-                                        "clawbackSubaccount": "clawback_user",
-                                        "clawbackPayment": "clawback_user_payment",
-                                        "cumulativeFundingRateDelta": "cumulative_funding_rate_delta"
-                                      }
-                                    },
-                                    "properties": {
-                                      "marketId": {
-                                        "type": "integer",
-                                        "format": "int32",
-                                        "minimum": 0,
-                                        "description": "Perpetual market ID.",
-                                        "example": 1
-                                      },
-                                      "pnl": {
-                                        "type": "string",
-                                        "format": "decimal",
-                                        "description": "Realized PnL of the bankrupt position, in quote asset. May be negative.",
-                                        "example": "-1234.56"
-                                      },
-                                      "insuranceFundPayment": {
-                                        "type": "string",
-                                        "format": "decimal",
-                                        "description": "Payment by the insurance fund to cover the shortfall, in quote asset.",
-                                        "example": "1234.56"
-                                      },
-                                      "clawbackSubaccount": {
-                                        "oneOf": [
-                                          {
-                                            "type": "string",
-                                            "pattern": "^0x[a-fA-F0-9]{40}$",
-                                            "description": "An Ethereum-compatible address in 0x-prefixed hex format (20 bytes).",
-                                            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ],
-                                        "description": "Counterparty subaccount clawed back to fund the bankruptcy. `null` when none.",
-                                        "example": null
-                                      },
-                                      "clawbackPayment": {
-                                        "allOf": [
-                                          {
-                                            "type": [
-                                              "string",
-                                              "null"
-                                            ],
-                                            "format": "decimal"
-                                          }
-                                        ],
-                                        "description": "Amount clawed back from `clawbackSubaccount`, in quote asset. `null` when none.",
-                                        "example": null
-                                      },
-                                      "cumulativeFundingRateDelta": {
-                                        "type": "string",
-                                        "format": "decimal",
-                                        "description": "Change in cumulative funding rate applied to the position. May be negative.",
-                                        "example": "0.00012"
-                                      }
-                                    }
-                                  },
-                                  {
-                                    "type": "object",
-                                    "description": "Detail for a spot position bankruptcy (`SPOT_BANKRUPTCY`).\nEmitted when a borrowed spot position cannot cover its debt. The insurance fund pays the shortfall.\n",
-                                    "required": [
-                                      "marketId",
-                                      "borrowAmount",
-                                      "insuranceFundPayment",
-                                      "cumulativeDepositInterestDelta"
-                                    ],
-                                    "x-on-chain": {
-                                      "struct": "SpotBankruptcyDetail",
-                                      "registry": "pallets/primitives/src/types.rs",
-                                      "mappings": {
-                                        "marketId": "market_index",
-                                        "borrowAmount": "borrow_amount",
-                                        "insuranceFundPayment": "if_payment",
-                                        "cumulativeDepositInterestDelta": "cumulative_deposit_interest_delta"
-                                      }
-                                    },
-                                    "properties": {
-                                      "marketId": {
-                                        "type": "integer",
-                                        "format": "int32",
-                                        "minimum": 0,
-                                        "description": "Lending market ID.",
-                                        "example": 1
-                                      },
-                                      "borrowAmount": {
-                                        "type": "string",
-                                        "format": "decimal",
-                                        "description": "Outstanding borrow amount of the bankrupt position.",
-                                        "example": "5000000.0"
-                                      },
-                                      "insuranceFundPayment": {
-                                        "type": "string",
-                                        "format": "decimal",
-                                        "description": "Payment by the insurance fund to cover the shortfall.",
-                                        "example": "1234.56"
-                                      },
-                                      "cumulativeDepositInterestDelta": {
-                                        "type": "string",
-                                        "format": "decimal",
-                                        "description": "Change in cumulative deposit interest rate applied.",
-                                        "example": "0.00005"
                                       }
                                     }
                                   }
@@ -7753,13 +7640,13 @@
                               "marginShortage": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Margin shortage in quote asset at the start of this liquidation.",
+                                "description": "Margin requirement shortfall in USDC for this operation.",
                                 "example": "123.456"
                               },
                               "marginFreed": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Margin freed from the liquidated account by this liquidation, in quote asset.",
+                                "description": "Margin freed by this operation, in USDC.",
                                 "example": "654.321"
                               },
                               "canceledOrders": {
@@ -7815,7 +7702,7 @@
                                               "side"
                                             ],
                                             "x-on-chain": {
-                                              "tuple": "(U256, bool) — identified by order id and buy flag"
+                                              "tuple": "(u64, bool) — identified by order id and buy flag"
                                             },
                                             "properties": {
                                               "orderId": {
@@ -7855,7 +7742,7 @@
                               },
                               "bankrupt": {
                                 "type": "boolean",
-                                "description": "Whether the subaccount went bankrupt in this liquidation.",
+                                "description": "Bankruptcy flag recorded for this operation. True for ADL and may also be true for ordinary liquidation; it does not report the account's current status.\n",
                                 "example": false
                               },
                               "txHash": {
@@ -7869,6 +7756,406 @@
                                 "format": "int64",
                                 "minimum": 0,
                                 "description": "Block number at which the liquidation occurred.",
+                                "example": 15089464
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10007,
+                  "msg": "Market 'BTC-USDC' does not exist or is not active.",
+                  "param": "symbol"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/subaccounts/{address}/bankruptcy-records": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "List Subaccount Bankruptcy Records",
+        "security": [],
+        "description": "Retrieves a cursor-paginated log of account-level insurance fund settlements for a subaccount.\n",
+        "operationId": "listSubaccountBankruptcyRecords",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "description": "The subaccount address.",
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$",
+              "description": "An Ethereum-compatible address in 0x-prefixed hex format (20 bytes).",
+              "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of records to return.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor for pagination. Pass the `nextCursor` value from the previous response unchanged to fetch the next page of older records. Do not parse the cursor or rely on its internal structure.\n",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startTime",
+            "in": "query",
+            "required": false,
+            "description": "Filter records at or after this timestamp (milliseconds).",
+            "example": 1678800000000,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "description": "A Unix timestamp in milliseconds.",
+              "example": 1678886400000
+            }
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "required": false,
+            "description": "Filter records at or before this timestamp (milliseconds).",
+            "example": 1678886400000,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "description": "A Unix timestamp in milliseconds.",
+              "example": 1678886400000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of bankruptcy records, sorted newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "nextCursor",
+                        "hasNext"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "description": "Array of paginated result records.",
+                          "example": []
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Opaque cursor for the next page of results. Pass this value as `cursor` in the next request to retrieve earlier records. Null when `hasNext` is false. Encoded as a base64 string whose internal structure should not be relied upon.\n",
+                          "example": "YWJjMTIz"
+                        },
+                        "hasNext": {
+                          "type": "boolean",
+                          "description": "Whether more records are available beyond this page.",
+                          "example": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "description": "Account-level insurance fund settlement. Payments create a recoverable claim against the subaccount. Liabilities may remain and the account may stay locked after settlement.\n",
+                            "required": [
+                              "id",
+                              "time",
+                              "subaccount",
+                              "insuranceFund",
+                              "payments",
+                              "txHash",
+                              "height"
+                            ],
+                            "x-on-chain": {
+                              "struct": "ResolveBankruptRecord",
+                              "registry": "pallets/primitives/src/types.rs",
+                              "event": "pallet_subaccount::Event::BankruptRecord",
+                              "mappings": {
+                                "id": "(indexer) global cursor",
+                                "time": "(indexer) block timestamp",
+                                "subaccount": "target_address",
+                                "insuranceFund": "if_address",
+                                "payments": "detail",
+                                "txHash": "(indexer) extrinsic hash",
+                                "height": "(indexer) block number"
+                              }
+                            },
+                            "properties": {
+                              "id": {
+                                "description": "Unique record ID assigned by the indexer. Use as the cursor for pagination.",
+                                "type": "string",
+                                "example": "123456789"
+                              },
+                              "time": {
+                                "description": "Block timestamp when the bankruptcy record was emitted (Unix timestamp in milliseconds).",
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 1000000000000,
+                                "maximum": 4102444800000,
+                                "example": 1678886400000
+                              },
+                              "subaccount": {
+                                "description": "Subaccount whose liabilities were processed.",
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]{40}$",
+                                "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                              },
+                              "insuranceFund": {
+                                "description": "Global insurance fund settlement subaccount.",
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]{40}$",
+                                "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                              },
+                              "payments": {
+                                "type": "array",
+                                "description": "Payments made in this operation; empty when nothing was paid. An asset may appear more than once when liabilities span lending pools.",
+                                "items": {
+                                  "type": "object",
+                                  "description": "An insurance fund payment toward a subaccount's remaining liability.",
+                                  "required": [
+                                    "asset",
+                                    "qty"
+                                  ],
+                                  "x-on-chain": {
+                                    "struct": "BankruptDetail",
+                                    "registry": "pallets/primitives/src/types.rs",
+                                    "mappings": {
+                                      "asset": "liability_symbol",
+                                      "qty": "amount"
+                                    }
+                                  },
+                                  "properties": {
+                                    "asset": {
+                                      "type": "string",
+                                      "description": "Liability asset ticker. Current settlement pays USDC; residual non-USDC dust may be paid in the matching asset.",
+                                      "example": "USDC"
+                                    },
+                                    "qty": {
+                                      "type": "string",
+                                      "format": "decimal",
+                                      "description": "Quantity paid by the insurance fund, in this asset.",
+                                      "example": "1234.56"
+                                    }
+                                  }
+                                }
+                              },
+                              "txHash": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]{64}$",
+                                "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
+                                "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
+                              },
+                              "height": {
+                                "type": "integer",
+                                "format": "int64",
+                                "minimum": 0,
+                                "description": "Block number at which the bankruptcy record was emitted.",
                                 "example": 15089464
                               }
                             }
@@ -9739,8 +10026,6 @@
                       "minQty",
                       "stepSize",
                       "minNotional",
-                      "liquidatorFee",
-                      "liqInsuranceFee",
                       "tradingInsuranceFee"
                     ],
                     "properties": {
@@ -9839,18 +10124,6 @@
                         "format": "decimal",
                         "description": "The minimum order value in quote asset.",
                         "example": "5.0"
-                      },
-                      "liquidatorFee": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Fee rate paid to the liquidator.",
-                        "example": "0.0125"
-                      },
-                      "liqInsuranceFee": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Fee rate paid to the insurance fund during liquidations.",
-                        "example": "0.0125"
                       },
                       "tradingInsuranceFee": {
                         "type": "string",
@@ -10046,8 +10319,6 @@
                     "minQty",
                     "stepSize",
                     "minNotional",
-                    "liquidatorFee",
-                    "liqInsuranceFee",
                     "tradingInsuranceFee"
                   ],
                   "properties": {
@@ -10146,18 +10417,6 @@
                       "format": "decimal",
                       "description": "The minimum order value in quote asset.",
                       "example": "5.0"
-                    },
-                    "liquidatorFee": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Fee rate paid to the liquidator.",
-                      "example": "0.0125"
-                    },
-                    "liqInsuranceFee": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Fee rate paid to the insurance fund during liquidations.",
-                      "example": "0.0125"
                     },
                     "tradingInsuranceFee": {
                       "type": "string",
@@ -11464,8 +11723,7 @@
                       "bucketSlippageStep",
                       "bucketSlippageLimit",
                       "liquidityDustValue",
-                      "liquidatorShareFeeRate",
-                      "insuranceFundShareFeeRate"
+                      "liquidationFeeRates"
                     ],
                     "properties": {
                       "symbol": {
@@ -11592,7 +11850,7 @@
                       "baseInterestRate": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Baseline interest rate decimal.",
+                        "description": "Base interest rate for an eight-hour period, expressed as a decimal.",
                         "example": "0.0001"
                       },
                       "impactMarginValue": {
@@ -11604,31 +11862,31 @@
                       "fundingRateChangeCap": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Maximum positive funding rate adjustment per epoch.",
+                        "description": "Maximum funding rate per hour, expressed as a decimal. Applied after dividing the eight-hour funding formula result by eight; caps the resulting rate, not its change from the previous rate.",
                         "example": "0.002"
                       },
                       "fundingRateChangeFloor": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Maximum negative funding rate adjustment per epoch.",
+                        "description": "Minimum funding rate per hour, expressed as a signed decimal. Applied after dividing the eight-hour funding formula result by eight; floors the resulting rate, not its change from the previous rate.",
                         "example": "-0.002"
                       },
                       "clampUpperBound": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Max absolute funding rate bound.",
+                        "description": "Upper bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
                         "example": "0.0005"
                       },
                       "clampLowerBound": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Min absolute funding rate bound.",
+                        "description": "Lower bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
                         "example": "-0.0005"
                       },
                       "liqDurationBlocks": {
                         "type": "integer",
                         "format": "int32",
-                        "description": "Liquidation duration in blocks.",
+                        "description": "Configured liquidation duration in blocks.",
                         "example": 100
                       },
                       "bucketSlippageStep": {
@@ -11649,17 +11907,51 @@
                         "description": "Minimum value in quote asset considered as dust.",
                         "example": "1.0"
                       },
-                      "liquidatorShareFeeRate": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Fee rate paid to the liquidator.",
-                        "example": "0.005"
-                      },
-                      "insuranceFundShareFeeRate": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Fee rate paid to the insurance fund.",
-                        "example": "0.005"
+                      "liquidationFeeRates": {
+                        "type": "object",
+                        "description": "Fixed liquidation reward and insurance fund rates, expressed as decimals between 0 and 1. Only the executed path's rates apply. ADL charges neither fee. Insurance fund fees are waived for an already-bankrupt account and otherwise capped by positive equity remaining after execution and rewards.\n",
+                        "required": [
+                          "marketLiquidatorFeeRate",
+                          "transferLiquidatorFeeRate",
+                          "marketInsuranceFundFeeRate",
+                          "transferInsuranceFundFeeRate"
+                        ],
+                        "x-on-chain": {
+                          "struct": "LiquidationFeeRate",
+                          "registry": "pallets/primitives/src/types.rs",
+                          "mappings": {
+                            "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+                            "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+                            "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+                            "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+                          }
+                        },
+                        "properties": {
+                          "marketLiquidatorFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Liquidator reward rate for orderbook execution.",
+                            "example": "0.0005"
+                          },
+                          "transferLiquidatorFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Liquidator reward rate for incentivized takeover.",
+                            "example": "0.001"
+                          },
+                          "marketInsuranceFundFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Insurance fund fee rate for orderbook execution.",
+                            "example": "0.005"
+                          },
+                          "transferInsuranceFundFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Insurance fund fee rate for incentivized takeover.",
+                            "example": "0.005"
+                          }
+                        }
                       }
                     }
                   }
@@ -11863,8 +12155,7 @@
                     "bucketSlippageStep",
                     "bucketSlippageLimit",
                     "liquidityDustValue",
-                    "liquidatorShareFeeRate",
-                    "insuranceFundShareFeeRate"
+                    "liquidationFeeRates"
                   ],
                   "properties": {
                     "symbol": {
@@ -11991,7 +12282,7 @@
                     "baseInterestRate": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Baseline interest rate decimal.",
+                      "description": "Base interest rate for an eight-hour period, expressed as a decimal.",
                       "example": "0.0001"
                     },
                     "impactMarginValue": {
@@ -12003,31 +12294,31 @@
                     "fundingRateChangeCap": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Maximum positive funding rate adjustment per epoch.",
+                      "description": "Maximum funding rate per hour, expressed as a decimal. Applied after dividing the eight-hour funding formula result by eight; caps the resulting rate, not its change from the previous rate.",
                       "example": "0.002"
                     },
                     "fundingRateChangeFloor": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Maximum negative funding rate adjustment per epoch.",
+                      "description": "Minimum funding rate per hour, expressed as a signed decimal. Applied after dividing the eight-hour funding formula result by eight; floors the resulting rate, not its change from the previous rate.",
                       "example": "-0.002"
                     },
                     "clampUpperBound": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Max absolute funding rate bound.",
+                      "description": "Upper bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
                       "example": "0.0005"
                     },
                     "clampLowerBound": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Min absolute funding rate bound.",
+                      "description": "Lower bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
                       "example": "-0.0005"
                     },
                     "liqDurationBlocks": {
                       "type": "integer",
                       "format": "int32",
-                      "description": "Liquidation duration in blocks.",
+                      "description": "Configured liquidation duration in blocks.",
                       "example": 100
                     },
                     "bucketSlippageStep": {
@@ -12048,17 +12339,51 @@
                       "description": "Minimum value in quote asset considered as dust.",
                       "example": "1.0"
                     },
-                    "liquidatorShareFeeRate": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Fee rate paid to the liquidator.",
-                      "example": "0.005"
-                    },
-                    "insuranceFundShareFeeRate": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Fee rate paid to the insurance fund.",
-                      "example": "0.005"
+                    "liquidationFeeRates": {
+                      "type": "object",
+                      "description": "Fixed liquidation reward and insurance fund rates, expressed as decimals between 0 and 1. Only the executed path's rates apply. ADL charges neither fee. Insurance fund fees are waived for an already-bankrupt account and otherwise capped by positive equity remaining after execution and rewards.\n",
+                      "required": [
+                        "marketLiquidatorFeeRate",
+                        "transferLiquidatorFeeRate",
+                        "marketInsuranceFundFeeRate",
+                        "transferInsuranceFundFeeRate"
+                      ],
+                      "x-on-chain": {
+                        "struct": "LiquidationFeeRate",
+                        "registry": "pallets/primitives/src/types.rs",
+                        "mappings": {
+                          "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+                          "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+                          "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+                          "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+                        }
+                      },
+                      "properties": {
+                        "marketLiquidatorFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Liquidator reward rate for orderbook execution.",
+                          "example": "0.0005"
+                        },
+                        "transferLiquidatorFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Liquidator reward rate for incentivized takeover.",
+                          "example": "0.001"
+                        },
+                        "marketInsuranceFundFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Insurance fund fee rate for orderbook execution.",
+                          "example": "0.005"
+                        },
+                        "transferInsuranceFundFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Insurance fund fee rate for incentivized takeover.",
+                          "example": "0.005"
+                        }
+                      }
                     }
                   }
                 }
@@ -15055,13 +15380,60 @@
                     "required": [
                       "asset",
                       "marginParameters",
-                      "interestRateModel"
+                      "interestRateModel",
+                      "liquidationFeeRates"
                     ],
                     "properties": {
                       "asset": {
                         "type": "string",
                         "description": "The base asset symbol.",
                         "example": "USDC"
+                      },
+                      "liquidationFeeRates": {
+                        "description": "Liquidation fee rates applied when this asset is the liability being repaid.",
+                        "type": "object",
+                        "required": [
+                          "marketLiquidatorFeeRate",
+                          "transferLiquidatorFeeRate",
+                          "marketInsuranceFundFeeRate",
+                          "transferInsuranceFundFeeRate"
+                        ],
+                        "x-on-chain": {
+                          "struct": "LiquidationFeeRate",
+                          "registry": "pallets/primitives/src/types.rs",
+                          "mappings": {
+                            "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+                            "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+                            "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+                            "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+                          }
+                        },
+                        "properties": {
+                          "marketLiquidatorFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Liquidator reward rate for orderbook execution.",
+                            "example": "0.0005"
+                          },
+                          "transferLiquidatorFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Liquidator reward rate for incentivized takeover.",
+                            "example": "0.001"
+                          },
+                          "marketInsuranceFundFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Insurance fund fee rate for orderbook execution.",
+                            "example": "0.005"
+                          },
+                          "transferInsuranceFundFeeRate": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Insurance fund fee rate for incentivized takeover.",
+                            "example": "0.005"
+                          }
+                        }
                       },
                       "marginParameters": {
                         "type": "object",
@@ -15141,9 +15513,9 @@
                           },
                           "kinks": {
                             "type": "array",
-                            "minItems": 1,
+                            "minItems": 0,
                             "maxItems": 5,
-                            "description": "Multi-linear model kinks (up to five).",
+                            "description": "Multi-linear model kinks (zero to five). With no kinks, the rate interpolates linearly from minBorrowRate at zero utilization to maxBorrowRate at full utilization.",
                             "example": [
                               {
                                 "utilization": "0.80",
@@ -15356,13 +15728,60 @@
                   "required": [
                     "asset",
                     "marginParameters",
-                    "interestRateModel"
+                    "interestRateModel",
+                    "liquidationFeeRates"
                   ],
                   "properties": {
                     "asset": {
                       "type": "string",
                       "description": "The base asset symbol.",
                       "example": "USDC"
+                    },
+                    "liquidationFeeRates": {
+                      "description": "Liquidation fee rates applied when this asset is the liability being repaid.",
+                      "type": "object",
+                      "required": [
+                        "marketLiquidatorFeeRate",
+                        "transferLiquidatorFeeRate",
+                        "marketInsuranceFundFeeRate",
+                        "transferInsuranceFundFeeRate"
+                      ],
+                      "x-on-chain": {
+                        "struct": "LiquidationFeeRate",
+                        "registry": "pallets/primitives/src/types.rs",
+                        "mappings": {
+                          "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+                          "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+                          "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+                          "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+                        }
+                      },
+                      "properties": {
+                        "marketLiquidatorFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Liquidator reward rate for orderbook execution.",
+                          "example": "0.0005"
+                        },
+                        "transferLiquidatorFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Liquidator reward rate for incentivized takeover.",
+                          "example": "0.001"
+                        },
+                        "marketInsuranceFundFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Insurance fund fee rate for orderbook execution.",
+                          "example": "0.005"
+                        },
+                        "transferInsuranceFundFeeRate": {
+                          "type": "string",
+                          "format": "decimal",
+                          "description": "Insurance fund fee rate for incentivized takeover.",
+                          "example": "0.005"
+                        }
+                      }
                     },
                     "marginParameters": {
                       "type": "object",
@@ -15442,9 +15861,9 @@
                         },
                         "kinks": {
                           "type": "array",
-                          "minItems": 1,
+                          "minItems": 0,
                           "maxItems": 5,
-                          "description": "Multi-linear model kinks (up to five).",
+                          "description": "Multi-linear model kinks (zero to five). With no kinks, the rate interpolates linearly from minBorrowRate at zero utilization to maxBorrowRate at full utilization.",
                           "example": [
                             {
                               "utilization": "0.80",
@@ -15739,7 +16158,7 @@
                       "utilizationRate": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The utilization rate of the pool (totalBorrowed / totalSupplied).",
+                        "description": "Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. All amounts use the same asset unit; borrows include accrued interest. Zero when both available liquidity and borrows are zero. The denominator is not necessarily equal to totalSupplied.\n",
                         "example": "0.5"
                       }
                     }
@@ -15972,7 +16391,7 @@
                     "utilizationRate": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "The utilization rate of the pool (totalBorrowed / totalSupplied).",
+                      "description": "Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. All amounts use the same asset unit; borrows include accrued interest. Zero when both available liquidity and borrows are zero. The denominator is not necessarily equal to totalSupplied.\n",
                       "example": "0.5"
                     }
                   }
@@ -16322,7 +16741,7 @@
                       "utilizationRate": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The utilization rate of the pool (totalBorrowed / totalSupplied).",
+                        "description": "Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. All amounts use the same asset unit; borrows include accrued interest. Zero when both available liquidity and borrows are zero. The denominator is not necessarily equal to totalSupplied.\n",
                         "example": "0.5"
                       }
                     }
@@ -17035,7 +17454,7 @@
             "example": "USDC"
           },
           "time": {
-            "description": "Timestamp of the event (epoch ms).",
+            "description": "Timestamp of the event (Unix timestamp in milliseconds).",
             "type": "integer",
             "format": "int64",
             "minimum": 1000000000000,
@@ -17647,18 +18066,16 @@
       },
       "LiqType": {
         "type": "string",
-        "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Normal perp position liquidation. |\n| `LIQUIDATE_SPOT` | Normal spot position liquidation. |\n| `PERP_BANKRUPTCY` | Perp position bankruptcy (position cannot cover debt). |\n| `SPOT_BANKRUPTCY` | Spot position bankruptcy (position cannot cover debt). |\n",
+        "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Perpetual liquidation. |\n| `LIQUIDATE_SPOT` | Spot or lending liquidation. |\n\nEach type includes orderbook execution, takeover, ADL, and cancellation-only records.\n",
         "enum": [
           "LIQUIDATE_PERP",
-          "LIQUIDATE_SPOT",
-          "PERP_BANKRUPTCY",
-          "SPOT_BANKRUPTCY"
+          "LIQUIDATE_SPOT"
         ],
         "example": "LIQUIDATE_PERP"
       },
       "LiqRecord": {
         "type": "object",
-        "description": "A liquidation event for a subaccount. Combines on-chain event data with indexer-supplied block metadata.\nType-specific fields live inside `detail`. The variant is determined\n by `liqType`.\n",
+        "description": "A subaccount liquidation record for orderbook execution, incentivized takeover, ADL, or order cancellations.\n",
         "required": [
           "id",
           "liqId",
@@ -17687,7 +18104,7 @@
             "marginFreed": "margin_freed",
             "canceledOrders": "canceled_order_ids",
             "bankrupt": "bankrupt",
-            "detail": "liquidation_type payload (one of LiquidatePerpDetail, LiquidateSpotDetail, PerpBankruptcyDetail, SpotBankruptcyDetail)",
+            "detail": "liquidation_type payload (one of LiquidatePerpDetail, LiquidateSpotDetail)",
             "id": "(indexer) global cursor",
             "time": "(indexer) block timestamp",
             "txHash": "(indexer) extrinsic hash",
@@ -17704,11 +18121,11 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0,
-            "description": "Sequence id of this liquidation, scoped to the subaccount.",
+            "description": "Liquidation round ID, scoped to the subaccount. Shared by all records in the round.",
             "example": 3
           },
           "time": {
-            "description": "Block timestamp when the liquidation event was emitted (epoch ms).",
+            "description": "Block timestamp when the liquidation event was emitted (Unix timestamp in milliseconds).",
             "type": "integer",
             "format": "int64",
             "minimum": 1000000000000,
@@ -17722,28 +18139,26 @@
             "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
           },
           "liquidator": {
-            "description": "Liquidator subaccount address.",
+            "description": "Executing liquidator for ordinary liquidation, or the counterparty whose risk is reduced for ADL. Not necessarily the transaction submitter.",
             "type": "string",
             "pattern": "^0x[a-fA-F0-9]{40}$",
             "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
           },
           "liqType": {
             "type": "string",
-            "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Normal perp position liquidation. |\n| `LIQUIDATE_SPOT` | Normal spot position liquidation. |\n| `PERP_BANKRUPTCY` | Perp position bankruptcy (position cannot cover debt). |\n| `SPOT_BANKRUPTCY` | Spot position bankruptcy (position cannot cover debt). |\n",
+            "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Perpetual liquidation. |\n| `LIQUIDATE_SPOT` | Spot or lending liquidation. |\n\nEach type includes orderbook execution, takeover, ADL, and cancellation-only records.\n",
             "enum": [
               "LIQUIDATE_PERP",
-              "LIQUIDATE_SPOT",
-              "PERP_BANKRUPTCY",
-              "SPOT_BANKRUPTCY"
+              "LIQUIDATE_SPOT"
             ],
             "example": "LIQUIDATE_PERP"
           },
           "detail": {
-            "description": "Type-specific details. The variant is determined by `liqType`:\n- `LIQUIDATE_PERP`   → LiqDetailPerp - `LIQUIDATE_SPOT`   → LiqDetailSpot - `PERP_BANKRUPTCY`  → PerpBankruptcyDetail - `SPOT_BANKRUPTCY`  → SpotBankruptcyDetail\n",
+            "description": "Type-specific details. The variant is determined by `liqType`:\n- `LIQUIDATE_PERP`   → LiqDetailPerp - `LIQUIDATE_SPOT`   → LiqDetailSpot\n",
             "oneOf": [
               {
                 "type": "object",
-                "description": "Detail for a perpetual position liquidation (`LIQUIDATE_PERP`).",
+                "description": "Perpetual liquidation details. A cancellation-only record has zero quantity, order IDs, and fees.\n",
                 "required": [
                   "marketId",
                   "settlementPrice",
@@ -17777,7 +18192,7 @@
                   "settlementPrice": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Settlement price at the moment of liquidation.",
+                    "description": "Reference price in USDC. Ordinary orderbook and takeover records contain the mark price; ADL records contain the bankruptcy execution price. May be zero for a cancellation-only record.\n",
                     "example": "84518.94"
                   },
                   "liquidateBaseQty": {
@@ -17787,36 +18202,32 @@
                     "example": "10.863"
                   },
                   "targetAccountOrderId": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0,
-                    "description": "Reduce-only order ID placed for the liquidated subaccount.",
-                    "example": 42
+                    "description": "Order ID used to reduce the liquidated subaccount's position. \"0\" when no order was placed.",
+                    "example": "42",
+                    "type": "string"
                   },
                   "liquidatorOrderId": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0,
-                    "description": "Order ID used by the liquidator. `0` when no liquidator order placed.\n",
-                    "example": 17
+                    "description": "Order ID used by the takeover or ADL counterparty. \"0\" for orderbook liquidation or when no counterparty order was placed.\n",
+                    "example": "17",
+                    "type": "string"
                   },
                   "liquidatorFee": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Fee paid to the liquidator, in quote asset.",
+                    "description": "Liquidator reward in USDC. Zero for ADL and cancellation-only records.\n",
                     "example": "0.196052"
                   },
                   "insuranceFundFee": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Fee paid to the insurance fund, in quote asset.",
+                    "description": "Insurance fund fee in USDC. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
                     "example": "0"
                   }
                 }
               },
               {
                 "type": "object",
-                "description": "Detail for a spot position liquidation (`LIQUIDATE_SPOT`).\n",
+                "description": "Spot or lending liquidation details.",
                 "required": [
                   "assetSymbol",
                   "assetPrice",
@@ -17824,6 +18235,7 @@
                   "liabilitySymbol",
                   "liabilityPrice",
                   "liabilityTransferQty",
+                  "liquidatorFee",
                   "insuranceFundFee"
                 ],
                 "x-on-chain": {
@@ -17836,173 +18248,56 @@
                     "liabilitySymbol": "liability_symbol",
                     "liabilityPrice": "liability_price",
                     "liabilityTransferQty": "liability_liquidate_transfer_amount",
+                    "liquidatorFee": "liquidator_fee",
                     "insuranceFundFee": "if_fee"
                   }
                 },
                 "properties": {
                   "assetSymbol": {
                     "type": "string",
-                    "description": "Collateral asset ticker transferred to the liquidator.",
+                    "description": "Asset ticker sold or transferred from the liquidated subaccount.",
                     "example": "BTC"
                   },
                   "assetPrice": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Price of the collateral asset at liquidation.",
+                    "description": "Reference price of the transferred asset, in USDC. May reflect ADL pricing. Zero for a cancellation-only record.",
                     "example": "84518.94"
                   },
                   "assetTransferQty": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Collateral asset quantity transferred to the liquidator.",
+                    "description": "Asset quantity sold or transferred. Zero when only orders were canceled.",
                     "example": "10.863"
                   },
                   "liabilitySymbol": {
                     "type": "string",
-                    "description": "Liability (borrowed) asset ticker assumed by the liquidator.",
+                    "description": "Asset ticker received to reduce the liquidated subaccount's liability.",
                     "example": "USDC"
                   },
                   "liabilityPrice": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Price of the liability asset at liquidation.",
+                    "description": "Reference price of the liability asset, in USDC. Zero for a cancellation-only record.",
                     "example": "1.0"
                   },
                   "liabilityTransferQty": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Liability asset quantity assumed by the liquidator.",
+                    "description": "Liability asset quantity received through the liquidation, before any applicable insurance fund fee.",
                     "example": "5000.0"
+                  },
+                  "liquidatorFee": {
+                    "type": "string",
+                    "format": "decimal",
+                    "description": "Liquidator reward recorded in USDC. For a takeover, this represents the reward embedded in the asset transfer, not an additional payment. Zero for ADL and cancellation-only records.\n",
+                    "example": "2.5"
                   },
                   "insuranceFundFee": {
                     "type": "string",
                     "format": "decimal",
-                    "description": "Fee paid to the insurance fund, in liability asset.",
+                    "description": "Insurance fund fee recorded in USDC, even when collected in another asset. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
                     "example": "0"
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "description": "Detail for a perpetual position bankruptcy (`PERP_BANKRUPTCY`).\nEmitted when a perp position cannot cover its debt. The insurance fund pays the shortfall and may claw back profitable counterparty accounts.\n",
-                "required": [
-                  "marketId",
-                  "pnl",
-                  "insuranceFundPayment",
-                  "cumulativeFundingRateDelta"
-                ],
-                "x-on-chain": {
-                  "struct": "PerpBankruptcyDetail",
-                  "registry": "pallets/primitives/src/types.rs",
-                  "mappings": {
-                    "marketId": "market_index",
-                    "pnl": "pnl",
-                    "insuranceFundPayment": "if_payment",
-                    "clawbackSubaccount": "clawback_user",
-                    "clawbackPayment": "clawback_user_payment",
-                    "cumulativeFundingRateDelta": "cumulative_funding_rate_delta"
-                  }
-                },
-                "properties": {
-                  "marketId": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0,
-                    "description": "Perpetual market ID.",
-                    "example": 1
-                  },
-                  "pnl": {
-                    "type": "string",
-                    "format": "decimal",
-                    "description": "Realized PnL of the bankrupt position, in quote asset. May be negative.",
-                    "example": "-1234.56"
-                  },
-                  "insuranceFundPayment": {
-                    "type": "string",
-                    "format": "decimal",
-                    "description": "Payment by the insurance fund to cover the shortfall, in quote asset.",
-                    "example": "1234.56"
-                  },
-                  "clawbackSubaccount": {
-                    "oneOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^0x[a-fA-F0-9]{40}$",
-                        "description": "An Ethereum-compatible address in 0x-prefixed hex format (20 bytes).",
-                        "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "description": "Counterparty subaccount clawed back to fund the bankruptcy. `null` when none.",
-                    "example": null
-                  },
-                  "clawbackPayment": {
-                    "allOf": [
-                      {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "format": "decimal"
-                      }
-                    ],
-                    "description": "Amount clawed back from `clawbackSubaccount`, in quote asset. `null` when none.",
-                    "example": null
-                  },
-                  "cumulativeFundingRateDelta": {
-                    "type": "string",
-                    "format": "decimal",
-                    "description": "Change in cumulative funding rate applied to the position. May be negative.",
-                    "example": "0.00012"
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "description": "Detail for a spot position bankruptcy (`SPOT_BANKRUPTCY`).\nEmitted when a borrowed spot position cannot cover its debt. The insurance fund pays the shortfall.\n",
-                "required": [
-                  "marketId",
-                  "borrowAmount",
-                  "insuranceFundPayment",
-                  "cumulativeDepositInterestDelta"
-                ],
-                "x-on-chain": {
-                  "struct": "SpotBankruptcyDetail",
-                  "registry": "pallets/primitives/src/types.rs",
-                  "mappings": {
-                    "marketId": "market_index",
-                    "borrowAmount": "borrow_amount",
-                    "insuranceFundPayment": "if_payment",
-                    "cumulativeDepositInterestDelta": "cumulative_deposit_interest_delta"
-                  }
-                },
-                "properties": {
-                  "marketId": {
-                    "type": "integer",
-                    "format": "int32",
-                    "minimum": 0,
-                    "description": "Lending market ID.",
-                    "example": 1
-                  },
-                  "borrowAmount": {
-                    "type": "string",
-                    "format": "decimal",
-                    "description": "Outstanding borrow amount of the bankrupt position.",
-                    "example": "5000000.0"
-                  },
-                  "insuranceFundPayment": {
-                    "type": "string",
-                    "format": "decimal",
-                    "description": "Payment by the insurance fund to cover the shortfall.",
-                    "example": "1234.56"
-                  },
-                  "cumulativeDepositInterestDelta": {
-                    "type": "string",
-                    "format": "decimal",
-                    "description": "Change in cumulative deposit interest rate applied.",
-                    "example": "0.00005"
                   }
                 }
               }
@@ -18011,13 +18306,13 @@
           "marginShortage": {
             "type": "string",
             "format": "decimal",
-            "description": "Margin shortage in quote asset at the start of this liquidation.",
+            "description": "Margin requirement shortfall in USDC for this operation.",
             "example": "123.456"
           },
           "marginFreed": {
             "type": "string",
             "format": "decimal",
-            "description": "Margin freed from the liquidated account by this liquidation, in quote asset.",
+            "description": "Margin freed by this operation, in USDC.",
             "example": "654.321"
           },
           "canceledOrders": {
@@ -18073,7 +18368,7 @@
                           "side"
                         ],
                         "x-on-chain": {
-                          "tuple": "(U256, bool) — identified by order id and buy flag"
+                          "tuple": "(u64, bool) — identified by order id and buy flag"
                         },
                         "properties": {
                           "orderId": {
@@ -18113,7 +18408,7 @@
           },
           "bankrupt": {
             "type": "boolean",
-            "description": "Whether the subaccount went bankrupt in this liquidation.",
+            "description": "Bankruptcy flag recorded for this operation. True for ADL and may also be true for ordinary liquidation; it does not report the account's current status.\n",
             "example": false
           },
           "txHash": {
@@ -18133,7 +18428,7 @@
       },
       "LiqDetailPerp": {
         "type": "object",
-        "description": "Detail for a perpetual position liquidation (`LIQUIDATE_PERP`).",
+        "description": "Perpetual liquidation details. A cancellation-only record has zero quantity, order IDs, and fees.\n",
         "required": [
           "marketId",
           "settlementPrice",
@@ -18167,7 +18462,7 @@
           "settlementPrice": {
             "type": "string",
             "format": "decimal",
-            "description": "Settlement price at the moment of liquidation.",
+            "description": "Reference price in USDC. Ordinary orderbook and takeover records contain the mark price; ADL records contain the bankruptcy execution price. May be zero for a cancellation-only record.\n",
             "example": "84518.94"
           },
           "liquidateBaseQty": {
@@ -18177,36 +18472,32 @@
             "example": "10.863"
           },
           "targetAccountOrderId": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0,
-            "description": "Reduce-only order ID placed for the liquidated subaccount.",
-            "example": 42
+            "description": "Order ID used to reduce the liquidated subaccount's position. \"0\" when no order was placed.",
+            "example": "42",
+            "type": "string"
           },
           "liquidatorOrderId": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0,
-            "description": "Order ID used by the liquidator. `0` when no liquidator order placed.\n",
-            "example": 17
+            "description": "Order ID used by the takeover or ADL counterparty. \"0\" for orderbook liquidation or when no counterparty order was placed.\n",
+            "example": "17",
+            "type": "string"
           },
           "liquidatorFee": {
             "type": "string",
             "format": "decimal",
-            "description": "Fee paid to the liquidator, in quote asset.",
+            "description": "Liquidator reward in USDC. Zero for ADL and cancellation-only records.\n",
             "example": "0.196052"
           },
           "insuranceFundFee": {
             "type": "string",
             "format": "decimal",
-            "description": "Fee paid to the insurance fund, in quote asset.",
+            "description": "Insurance fund fee in USDC. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
             "example": "0"
           }
         }
       },
       "LiqDetailSpot": {
         "type": "object",
-        "description": "Detail for a spot position liquidation (`LIQUIDATE_SPOT`).\n",
+        "description": "Spot or lending liquidation details.",
         "required": [
           "assetSymbol",
           "assetPrice",
@@ -18214,6 +18505,7 @@
           "liabilitySymbol",
           "liabilityPrice",
           "liabilityTransferQty",
+          "liquidatorFee",
           "insuranceFundFee"
         ],
         "x-on-chain": {
@@ -18226,48 +18518,55 @@
             "liabilitySymbol": "liability_symbol",
             "liabilityPrice": "liability_price",
             "liabilityTransferQty": "liability_liquidate_transfer_amount",
+            "liquidatorFee": "liquidator_fee",
             "insuranceFundFee": "if_fee"
           }
         },
         "properties": {
           "assetSymbol": {
             "type": "string",
-            "description": "Collateral asset ticker transferred to the liquidator.",
+            "description": "Asset ticker sold or transferred from the liquidated subaccount.",
             "example": "BTC"
           },
           "assetPrice": {
             "type": "string",
             "format": "decimal",
-            "description": "Price of the collateral asset at liquidation.",
+            "description": "Reference price of the transferred asset, in USDC. May reflect ADL pricing. Zero for a cancellation-only record.",
             "example": "84518.94"
           },
           "assetTransferQty": {
             "type": "string",
             "format": "decimal",
-            "description": "Collateral asset quantity transferred to the liquidator.",
+            "description": "Asset quantity sold or transferred. Zero when only orders were canceled.",
             "example": "10.863"
           },
           "liabilitySymbol": {
             "type": "string",
-            "description": "Liability (borrowed) asset ticker assumed by the liquidator.",
+            "description": "Asset ticker received to reduce the liquidated subaccount's liability.",
             "example": "USDC"
           },
           "liabilityPrice": {
             "type": "string",
             "format": "decimal",
-            "description": "Price of the liability asset at liquidation.",
+            "description": "Reference price of the liability asset, in USDC. Zero for a cancellation-only record.",
             "example": "1.0"
           },
           "liabilityTransferQty": {
             "type": "string",
             "format": "decimal",
-            "description": "Liability asset quantity assumed by the liquidator.",
+            "description": "Liability asset quantity received through the liquidation, before any applicable insurance fund fee.",
             "example": "5000.0"
+          },
+          "liquidatorFee": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Liquidator reward recorded in USDC. For a takeover, this represents the reward embedded in the asset transfer, not an additional payment. Zero for ADL and cancellation-only records.\n",
+            "example": "2.5"
           },
           "insuranceFundFee": {
             "type": "string",
             "format": "decimal",
-            "description": "Fee paid to the insurance fund, in liability asset.",
+            "description": "Insurance fund fee recorded in USDC, even when collected in another asset. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
             "example": "0"
           }
         }
@@ -18321,12 +18620,12 @@
           },
           "message": {
             "type": "string",
-            "description": "Exact EIP-191 `personal_sign` message. It must match the URL address and `idempotencyKey` and use LF line breaks.",
+            "description": "Exact EIP-191 `personal_sign` message signed by the wallet or its active, enabled delegate. It must match the URL address and `idempotencyKey` and use LF line breaks.",
             "example": "DeepX quota claim\nWallet: 0x2394487877bbcdd12f6a7a904fc8aedf3223fc50\nIdempotency-Key: 018f52bc-0f0b-7cc4-b356-a91f62c72e3f"
           },
           "signature": {
             "type": "string",
-            "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized delegate addresses.",
+            "description": "EIP-191 signature of `message`, prefixed with `0x`. The signer must be the wallet in the URL or one of its authorized, active, enabled delegate addresses.",
             "example": "0x..."
           }
         }
@@ -18460,8 +18759,7 @@
             "delegateName": "delegate_name",
             "validUntil": "valid_until",
             "mode": "mode (pallet_primitives::types::DelegateMode, only PlaceOrCancelOrder/Disable are assignable)",
-            "createTime": "create_time",
-            "active": "derived from DelegateInfo::is_active(now_ms) (`valid_until == 0 || valid_until > now_ms`)"
+            "createTime": "create_time"
           }
         },
         "properties": {
@@ -18480,7 +18778,7 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0,
-            "description": "Unix timestamp in milliseconds when the delegate permission expires. `0` means the delegate never expires.\n",
+            "description": "Unix timestamp in milliseconds when the delegate permission expires. `0` means the delegate never expires. Otherwise, permission has expired when the current Unix timestamp in milliseconds is greater than or equal to validUntil.\n",
             "example": 1781964821000
           },
           "mode": {
@@ -18489,7 +18787,7 @@
               "PlaceOrCancelOrder",
               "Disable"
             ],
-            "description": "Delegate permission mode. `PlaceOrCancelOrder` grants order placement and cancellation and is the default. `Disable` suspends the delegate without removing it.\n",
+            "description": "Delegate permission mode. `PlaceOrCancelOrder` grants order placement and cancellation and is the default. `Disable` suspends the delegate without removing it. Order permission requires mode=PlaceOrCancelOrder and an unexpired validUntil.\n",
             "example": "PlaceOrCancelOrder"
           },
           "createTime": {
@@ -18497,11 +18795,6 @@
             "format": "int64",
             "description": "Unix timestamp in milliseconds when the delegate was first configured.",
             "example": 1781964821000
-          },
-          "active": {
-            "type": "boolean",
-            "description": "Whether the delegate is currently usable. A delegate is active until it expires; a never-expiring delegate is always active.\n",
-            "example": true
           }
         }
       },
@@ -18544,7 +18837,7 @@
       },
       "PerpPosition": {
         "type": "object",
-        "description": "A perpetual position. REST position lists contain open positions only. In updates from that WebSocket stream, qty \"0\" means the position identified by (subaccount, symbol) has closed.",
+        "description": "A perpetual position. REST position lists contain open positions only. In account@perp-positions WebSocket updates, qty \"0\" means the position identified by (subaccount, symbol) has closed.",
         "required": [
           "symbol",
           "subaccount",
@@ -18553,7 +18846,9 @@
           "entryPrice",
           "effectiveLeverage",
           "liqPrice",
+          "realizedPnl",
           "unrealizedPnl",
+          "totalFee",
           "takeProfit",
           "stopLoss",
           "time"
@@ -18587,13 +18882,13 @@
           "qty": {
             "type": "string",
             "format": "decimal",
-            "description": "Current position size in base asset. In account@perp-positions WebSocket updates, \"0\" means the position has closed.",
+            "description": "Current remaining position quantity in base asset. \"0\" indicates a closing WebSocket update, not a historical position.",
             "example": "0.01"
           },
           "entryPrice": {
             "type": "string",
             "format": "decimal",
-            "description": "Average entry price of the position.",
+            "description": "Average cost basis of the remaining position. Reductions and PnL settlements do not change it; increases reweight it by remaining quantity.",
             "example": "2025.48"
           },
           "effectiveLeverage": {
@@ -18603,22 +18898,37 @@
             "example": "10"
           },
           "liqPrice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "decimal",
+            "description": "Estimated liquidation price, or null when the position cannot be liquidated at any price. It is \"0\" when an account@perp-positions WebSocket update reports a closed position.",
+            "example": "1850.00"
+          },
+          "realizedPnl": {
             "type": "string",
             "format": "decimal",
-            "description": "Estimated liquidation price. It is \"0\" when an account@perp-positions WebSocket update reports a closed position.",
-            "example": "1850.00"
+            "description": "Price PnL realized so far in this position through partial closes and PnL settlements. Excludes funding and fees.",
+            "example": "4.50"
           },
           "unrealizedPnl": {
             "type": "string",
             "format": "decimal",
-            "description": "Floating PnL at the current mark price. It is \"0\" when an account@perp-positions WebSocket update reports a closed position.",
+            "description": "Price PnL of the remaining position at the current mark price relative to its latest PnL settlement price. Excludes realized PnL, funding, and fees. \"0\" on a closing WebSocket update.",
             "example": "12.50"
           },
           "fundingPayment": {
             "type": "string",
             "format": "decimal",
-            "description": "Total funding payments accumulated for this position lifecycle.",
+            "description": "Net funding payments for this position; positive means income.",
             "example": "-0.13816"
+          },
+          "totalFee": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Net fees charged for this position, including trading, liquidation, and any ADL fees, net of rebates. Positive means a cost.",
+            "example": "0.004044"
           },
           "takeProfit": {
             "type": [
@@ -18734,37 +19044,37 @@
           "qty": {
             "type": "string",
             "format": "decimal",
-            "description": "Maximum size of the position during its lifecycle.",
+            "description": "Total quantity closed in this position, equal to the total quantity opened; not the maximum simultaneous position size.",
             "example": "0.01"
           },
           "entryPrice": {
             "type": "string",
             "format": "decimal",
-            "description": "Average entry price.",
+            "description": "Quantity-weighted average of all opening executions for this position, including increases after partial closes.",
             "example": "2019.63"
           },
           "closePrice": {
             "type": "string",
             "format": "decimal",
-            "description": "Average exit price.",
+            "description": "Quantity-weighted average of all closing executions for this position, including partial closes, liquidations, and ADL.",
             "example": "2025.48"
           },
           "realizedPnl": {
             "type": "string",
             "format": "decimal",
-            "description": "Cumulative realized PnL over the position lifecycle, including amounts realized through partial closes and intermediate settlements. Excludes funding payments and trading fees.",
+            "description": "Final price PnL for this position, including partial closes and intermediate PnL settlements. Excludes funding and fees. Long is (closePrice - entryPrice) times qty; short is (entryPrice - closePrice) times qty, subject to rounding.",
             "example": "0.0585"
           },
           "fundingPayment": {
             "type": "string",
             "format": "decimal",
-            "description": "Net funding payments paid or received.",
+            "description": "Net funding payments for this position; positive means income.",
             "example": "-0.013816"
           },
           "totalFee": {
             "type": "string",
             "format": "decimal",
-            "description": "Total trading fees paid.",
+            "description": "Net fees charged for this position, including trading, liquidation, and any ADL fees, net of rebates. Positive means a cost.",
             "example": "0.004044"
           },
           "openTime": {
@@ -19457,130 +19767,6 @@
         "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
         "example": "0x9b7ddd4fd0f97940005418084c0ed83f82605294bc16d2be34f9c8e2c03837e1"
       },
-      "PerpBankruptcyDetail": {
-        "type": "object",
-        "description": "Detail for a perpetual position bankruptcy (`PERP_BANKRUPTCY`).\nEmitted when a perp position cannot cover its debt. The insurance fund pays the shortfall and may claw back profitable counterparty accounts.\n",
-        "required": [
-          "marketId",
-          "pnl",
-          "insuranceFundPayment",
-          "cumulativeFundingRateDelta"
-        ],
-        "x-on-chain": {
-          "struct": "PerpBankruptcyDetail",
-          "registry": "pallets/primitives/src/types.rs",
-          "mappings": {
-            "marketId": "market_index",
-            "pnl": "pnl",
-            "insuranceFundPayment": "if_payment",
-            "clawbackSubaccount": "clawback_user",
-            "clawbackPayment": "clawback_user_payment",
-            "cumulativeFundingRateDelta": "cumulative_funding_rate_delta"
-          }
-        },
-        "properties": {
-          "marketId": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0,
-            "description": "Perpetual market ID.",
-            "example": 1
-          },
-          "pnl": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Realized PnL of the bankrupt position, in quote asset. May be negative.",
-            "example": "-1234.56"
-          },
-          "insuranceFundPayment": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Payment by the insurance fund to cover the shortfall, in quote asset.",
-            "example": "1234.56"
-          },
-          "clawbackSubaccount": {
-            "oneOf": [
-              {
-                "type": "string",
-                "pattern": "^0x[a-fA-F0-9]{40}$",
-                "description": "An Ethereum-compatible address in 0x-prefixed hex format (20 bytes).",
-                "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Counterparty subaccount clawed back to fund the bankruptcy. `null` when none.",
-            "example": null
-          },
-          "clawbackPayment": {
-            "allOf": [
-              {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "format": "decimal"
-              }
-            ],
-            "description": "Amount clawed back from `clawbackSubaccount`, in quote asset. `null` when none.",
-            "example": null
-          },
-          "cumulativeFundingRateDelta": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Change in cumulative funding rate applied to the position. May be negative.",
-            "example": "0.00012"
-          }
-        }
-      },
-      "SpotBankruptcyDetail": {
-        "type": "object",
-        "description": "Detail for a spot position bankruptcy (`SPOT_BANKRUPTCY`).\nEmitted when a borrowed spot position cannot cover its debt. The insurance fund pays the shortfall.\n",
-        "required": [
-          "marketId",
-          "borrowAmount",
-          "insuranceFundPayment",
-          "cumulativeDepositInterestDelta"
-        ],
-        "x-on-chain": {
-          "struct": "SpotBankruptcyDetail",
-          "registry": "pallets/primitives/src/types.rs",
-          "mappings": {
-            "marketId": "market_index",
-            "borrowAmount": "borrow_amount",
-            "insuranceFundPayment": "if_payment",
-            "cumulativeDepositInterestDelta": "cumulative_deposit_interest_delta"
-          }
-        },
-        "properties": {
-          "marketId": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0,
-            "description": "Lending market ID.",
-            "example": 1
-          },
-          "borrowAmount": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Outstanding borrow amount of the bankrupt position.",
-            "example": "5000000.0"
-          },
-          "insuranceFundPayment": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Payment by the insurance fund to cover the shortfall.",
-            "example": "1234.56"
-          },
-          "cumulativeDepositInterestDelta": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Change in cumulative deposit interest rate applied.",
-            "example": "0.00005"
-          }
-        }
-      },
       "SpotCancelOrderEntry": {
         "type": "object",
         "description": "A single canceled spot order entry within a trading pair.",
@@ -19589,7 +19775,7 @@
           "side"
         ],
         "x-on-chain": {
-          "tuple": "(U256, bool) — identified by order id and buy flag"
+          "tuple": "(u64, bool) — identified by order id and buy flag"
         },
         "properties": {
           "orderId": {
@@ -19641,7 +19827,7 @@
                 "side"
               ],
               "x-on-chain": {
-                "tuple": "(U256, bool) — identified by order id and buy flag"
+                "tuple": "(u64, bool) — identified by order id and buy flag"
               },
               "properties": {
                 "orderId": {
@@ -19716,7 +19902,7 @@
                       "side"
                     ],
                     "x-on-chain": {
-                      "tuple": "(U256, bool) — identified by order id and buy flag"
+                      "tuple": "(u64, bool) — identified by order id and buy flag"
                     },
                     "properties": {
                       "orderId": {
@@ -19754,6 +19940,135 @@
           }
         }
       },
+      "BankruptcyPayment": {
+        "type": "object",
+        "description": "An insurance fund payment toward a subaccount's remaining liability.",
+        "required": [
+          "asset",
+          "qty"
+        ],
+        "x-on-chain": {
+          "struct": "BankruptDetail",
+          "registry": "pallets/primitives/src/types.rs",
+          "mappings": {
+            "asset": "liability_symbol",
+            "qty": "amount"
+          }
+        },
+        "properties": {
+          "asset": {
+            "type": "string",
+            "description": "Liability asset ticker. Current settlement pays USDC; residual non-USDC dust may be paid in the matching asset.",
+            "example": "USDC"
+          },
+          "qty": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Quantity paid by the insurance fund, in this asset.",
+            "example": "1234.56"
+          }
+        }
+      },
+      "BankruptcyRecord": {
+        "type": "object",
+        "description": "Account-level insurance fund settlement. Payments create a recoverable claim against the subaccount. Liabilities may remain and the account may stay locked after settlement.\n",
+        "required": [
+          "id",
+          "time",
+          "subaccount",
+          "insuranceFund",
+          "payments",
+          "txHash",
+          "height"
+        ],
+        "x-on-chain": {
+          "struct": "ResolveBankruptRecord",
+          "registry": "pallets/primitives/src/types.rs",
+          "event": "pallet_subaccount::Event::BankruptRecord",
+          "mappings": {
+            "id": "(indexer) global cursor",
+            "time": "(indexer) block timestamp",
+            "subaccount": "target_address",
+            "insuranceFund": "if_address",
+            "payments": "detail",
+            "txHash": "(indexer) extrinsic hash",
+            "height": "(indexer) block number"
+          }
+        },
+        "properties": {
+          "id": {
+            "description": "Unique record ID assigned by the indexer. Use as the cursor for pagination.",
+            "type": "string",
+            "example": "123456789"
+          },
+          "time": {
+            "description": "Block timestamp when the bankruptcy record was emitted (Unix timestamp in milliseconds).",
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000000000000,
+            "maximum": 4102444800000,
+            "example": 1678886400000
+          },
+          "subaccount": {
+            "description": "Subaccount whose liabilities were processed.",
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+          },
+          "insuranceFund": {
+            "description": "Global insurance fund settlement subaccount.",
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+          },
+          "payments": {
+            "type": "array",
+            "description": "Payments made in this operation; empty when nothing was paid. An asset may appear more than once when liabilities span lending pools.",
+            "items": {
+              "type": "object",
+              "description": "An insurance fund payment toward a subaccount's remaining liability.",
+              "required": [
+                "asset",
+                "qty"
+              ],
+              "x-on-chain": {
+                "struct": "BankruptDetail",
+                "registry": "pallets/primitives/src/types.rs",
+                "mappings": {
+                  "asset": "liability_symbol",
+                  "qty": "amount"
+                }
+              },
+              "properties": {
+                "asset": {
+                  "type": "string",
+                  "description": "Liability asset ticker. Current settlement pays USDC; residual non-USDC dust may be paid in the matching asset.",
+                  "example": "USDC"
+                },
+                "qty": {
+                  "type": "string",
+                  "format": "decimal",
+                  "description": "Quantity paid by the insurance fund, in this asset.",
+                  "example": "1234.56"
+                }
+              }
+            }
+          },
+          "txHash": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{64}$",
+            "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
+            "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Block number at which the bankruptcy record was emitted.",
+            "example": 15089464
+          }
+        }
+      },
       "SpotMarket": {
         "type": "object",
         "description": "A spot market's trading rules.",
@@ -19771,8 +20086,6 @@
           "minQty",
           "stepSize",
           "minNotional",
-          "liquidatorFee",
-          "liqInsuranceFee",
           "tradingInsuranceFee"
         ],
         "properties": {
@@ -19871,18 +20184,6 @@
             "format": "decimal",
             "description": "The minimum order value in quote asset.",
             "example": "5.0"
-          },
-          "liquidatorFee": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Fee rate paid to the liquidator.",
-            "example": "0.0125"
-          },
-          "liqInsuranceFee": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Fee rate paid to the insurance fund during liquidations.",
-            "example": "0.0125"
           },
           "tradingInsuranceFee": {
             "type": "string",
@@ -20174,6 +20475,52 @@
           }
         }
       },
+      "LiquidationFeeRates": {
+        "type": "object",
+        "description": "Fixed liquidation reward and insurance fund rates, expressed as decimals between 0 and 1. Only the executed path's rates apply. ADL charges neither fee. Insurance fund fees are waived for an already-bankrupt account and otherwise capped by positive equity remaining after execution and rewards.\n",
+        "required": [
+          "marketLiquidatorFeeRate",
+          "transferLiquidatorFeeRate",
+          "marketInsuranceFundFeeRate",
+          "transferInsuranceFundFeeRate"
+        ],
+        "x-on-chain": {
+          "struct": "LiquidationFeeRate",
+          "registry": "pallets/primitives/src/types.rs",
+          "mappings": {
+            "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+            "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+            "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+            "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+          }
+        },
+        "properties": {
+          "marketLiquidatorFeeRate": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Liquidator reward rate for orderbook execution.",
+            "example": "0.0005"
+          },
+          "transferLiquidatorFeeRate": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Liquidator reward rate for incentivized takeover.",
+            "example": "0.001"
+          },
+          "marketInsuranceFundFeeRate": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Insurance fund fee rate for orderbook execution.",
+            "example": "0.005"
+          },
+          "transferInsuranceFundFeeRate": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Insurance fund fee rate for incentivized takeover.",
+            "example": "0.005"
+          }
+        }
+      },
       "PerpMarket": {
         "type": "object",
         "description": "A perpetual contract market's trading rules.",
@@ -20205,8 +20552,7 @@
           "bucketSlippageStep",
           "bucketSlippageLimit",
           "liquidityDustValue",
-          "liquidatorShareFeeRate",
-          "insuranceFundShareFeeRate"
+          "liquidationFeeRates"
         ],
         "properties": {
           "symbol": {
@@ -20333,7 +20679,7 @@
           "baseInterestRate": {
             "type": "string",
             "format": "decimal",
-            "description": "Baseline interest rate decimal.",
+            "description": "Base interest rate for an eight-hour period, expressed as a decimal.",
             "example": "0.0001"
           },
           "impactMarginValue": {
@@ -20345,31 +20691,31 @@
           "fundingRateChangeCap": {
             "type": "string",
             "format": "decimal",
-            "description": "Maximum positive funding rate adjustment per epoch.",
+            "description": "Maximum funding rate per hour, expressed as a decimal. Applied after dividing the eight-hour funding formula result by eight; caps the resulting rate, not its change from the previous rate.",
             "example": "0.002"
           },
           "fundingRateChangeFloor": {
             "type": "string",
             "format": "decimal",
-            "description": "Maximum negative funding rate adjustment per epoch.",
+            "description": "Minimum funding rate per hour, expressed as a signed decimal. Applied after dividing the eight-hour funding formula result by eight; floors the resulting rate, not its change from the previous rate.",
             "example": "-0.002"
           },
           "clampUpperBound": {
             "type": "string",
             "format": "decimal",
-            "description": "Max absolute funding rate bound.",
+            "description": "Upper bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
             "example": "0.0005"
           },
           "clampLowerBound": {
             "type": "string",
             "format": "decimal",
-            "description": "Min absolute funding rate bound.",
+            "description": "Lower bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
             "example": "-0.0005"
           },
           "liqDurationBlocks": {
             "type": "integer",
             "format": "int32",
-            "description": "Liquidation duration in blocks.",
+            "description": "Configured liquidation duration in blocks.",
             "example": 100
           },
           "bucketSlippageStep": {
@@ -20390,17 +20736,51 @@
             "description": "Minimum value in quote asset considered as dust.",
             "example": "1.0"
           },
-          "liquidatorShareFeeRate": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Fee rate paid to the liquidator.",
-            "example": "0.005"
-          },
-          "insuranceFundShareFeeRate": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Fee rate paid to the insurance fund.",
-            "example": "0.005"
+          "liquidationFeeRates": {
+            "type": "object",
+            "description": "Fixed liquidation reward and insurance fund rates, expressed as decimals between 0 and 1. Only the executed path's rates apply. ADL charges neither fee. Insurance fund fees are waived for an already-bankrupt account and otherwise capped by positive equity remaining after execution and rewards.\n",
+            "required": [
+              "marketLiquidatorFeeRate",
+              "transferLiquidatorFeeRate",
+              "marketInsuranceFundFeeRate",
+              "transferInsuranceFundFeeRate"
+            ],
+            "x-on-chain": {
+              "struct": "LiquidationFeeRate",
+              "registry": "pallets/primitives/src/types.rs",
+              "mappings": {
+                "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+                "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+                "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+                "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+              }
+            },
+            "properties": {
+              "marketLiquidatorFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Liquidator reward rate for orderbook execution.",
+                "example": "0.0005"
+              },
+              "transferLiquidatorFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Liquidator reward rate for incentivized takeover.",
+                "example": "0.001"
+              },
+              "marketInsuranceFundFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Insurance fund fee rate for orderbook execution.",
+                "example": "0.005"
+              },
+              "transferInsuranceFundFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Insurance fund fee rate for incentivized takeover.",
+                "example": "0.005"
+              }
+            }
           }
         }
       },
@@ -20662,13 +21042,60 @@
         "required": [
           "asset",
           "marginParameters",
-          "interestRateModel"
+          "interestRateModel",
+          "liquidationFeeRates"
         ],
         "properties": {
           "asset": {
             "type": "string",
             "description": "The base asset symbol.",
             "example": "USDC"
+          },
+          "liquidationFeeRates": {
+            "description": "Liquidation fee rates applied when this asset is the liability being repaid.",
+            "type": "object",
+            "required": [
+              "marketLiquidatorFeeRate",
+              "transferLiquidatorFeeRate",
+              "marketInsuranceFundFeeRate",
+              "transferInsuranceFundFeeRate"
+            ],
+            "x-on-chain": {
+              "struct": "LiquidationFeeRate",
+              "registry": "pallets/primitives/src/types.rs",
+              "mappings": {
+                "marketLiquidatorFeeRate": "market_liquidator_fee_rate",
+                "transferLiquidatorFeeRate": "transfer_liquidator_fee_rate",
+                "marketInsuranceFundFeeRate": "market_insurance_fund_fee_rate",
+                "transferInsuranceFundFeeRate": "transfer_insurance_fund_fee_rate"
+              }
+            },
+            "properties": {
+              "marketLiquidatorFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Liquidator reward rate for orderbook execution.",
+                "example": "0.0005"
+              },
+              "transferLiquidatorFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Liquidator reward rate for incentivized takeover.",
+                "example": "0.001"
+              },
+              "marketInsuranceFundFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Insurance fund fee rate for orderbook execution.",
+                "example": "0.005"
+              },
+              "transferInsuranceFundFeeRate": {
+                "type": "string",
+                "format": "decimal",
+                "description": "Insurance fund fee rate for incentivized takeover.",
+                "example": "0.005"
+              }
+            }
           },
           "marginParameters": {
             "type": "object",
@@ -20748,9 +21175,9 @@
               },
               "kinks": {
                 "type": "array",
-                "minItems": 1,
+                "minItems": 0,
                 "maxItems": 5,
-                "description": "Multi-linear model kinks (up to five).",
+                "description": "Multi-linear model kinks (zero to five). With no kinks, the rate interpolates linearly from minBorrowRate at zero utilization to maxBorrowRate at full utilization.",
                 "example": [
                   {
                     "utilization": "0.80",
@@ -20849,7 +21276,7 @@
           "utilizationRate": {
             "type": "string",
             "format": "decimal",
-            "description": "The utilization rate of the pool (totalBorrowed / totalSupplied).",
+            "description": "Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. All amounts use the same asset unit; borrows include accrued interest. Zero when both available liquidity and borrows are zero. The denominator is not necessarily equal to totalSupplied.\n",
             "example": "0.5"
           }
         }
@@ -20917,7 +21344,7 @@
             "utilizationRate": {
               "type": "string",
               "format": "decimal",
-              "description": "The utilization rate of the pool (totalBorrowed / totalSupplied).",
+              "description": "Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. All amounts use the same asset unit; borrows include accrued interest. Zero when both available liquidity and borrows are zero. The denominator is not necessarily equal to totalSupplied.\n",
               "example": "0.5"
             }
           }
@@ -20986,7 +21413,7 @@
             "utilizationRate": {
               "type": "string",
               "format": "decimal",
-              "description": "The utilization rate of the pool (totalBorrowed / totalSupplied).",
+              "description": "Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. All amounts use the same asset unit; borrows include accrued interest. Zero when both available liquidity and borrows are zero. The denominator is not necessarily equal to totalSupplied.\n",
               "example": "0.5"
             }
           }

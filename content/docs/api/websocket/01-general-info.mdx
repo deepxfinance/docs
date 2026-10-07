@@ -9,7 +9,7 @@ DeepX public API provides a high-performance, real-time data streaming service v
 
 | Property | Value |
 |---|---|
-| **API Version** | `1.4.1` |
+| **API Version** | `1.6.0` |
 | **Base Endpoint** | `wss://testnet-api.deepx.fi/v1/ws` |
 | **Protocol** | JSON text frames, UTF-8 encoded |
 | **Max Active Subscriptions** | 100 per connection |
@@ -50,6 +50,6 @@ As a decentralized exchange, all on-chain data is publicly accessible.
 ## 4. Data Integrity
 
 - **Numeric Precision** — All financial values (prices, quantities, fees) are transmitted as **strings** to prevent IEEE 754 precision loss during JSON parsing.
-- **Timestamps** — All `time` fields are Unix epoch milliseconds (`int64`).
+- **Timestamps** — All `time` fields are Unix timestamps in milliseconds (`int64`).
 - **Schema Consistency** — WebSocket push payloads are structurally identical to their corresponding REST API response schemas.
 - **Update Cadence** — Most streams are evaluated per block but push only when the data changes (change-triggered).

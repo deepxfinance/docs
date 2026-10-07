@@ -12,8 +12,9 @@ _openapi:
     contents:
       - content: >
           Requests an immediate grant of earned quota. The request requires a
-          signature from the wallet in the URL or one of its authorized delegate
-          addresses, and is accepted asynchronously. Reusing an `idempotencyKey`
+          signature from the wallet in the URL or one of its authorized, active,
+          enabled delegate addresses, and is accepted asynchronously. The grant
+          always goes to the wallet in the URL. Reusing an `idempotencyKey`
           returns the original result.
 ---
 

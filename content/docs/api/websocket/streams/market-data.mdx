@@ -132,7 +132,7 @@ Pushes each new trade execution as it settles on-chain.
 | `id` | string | Unique trade ID |
 | `symbol` | string | Market symbol |
 | `marketId` | int32 | Internal validator market ID (perp only) |
-| `time` | int64 | Trade execution timestamp (epoch ms) |
+| `time` | int64 | Trade execution timestamp (Unix timestamp in milliseconds) |
 | `price` | string | Execution price |
 | `qty` | string | Base asset quantity |
 | `quoteQty` | string | Quote asset quantity |
@@ -188,7 +188,7 @@ Aggregated 24h market statistics.
 | `priceChange24h` | string | Decimal price-change ratio over the last 24 hours (`0.023` means `2.3%`) |
 | `volume24h` | string | Total traded volume (in quote asset) over the last 24 hours |
 | `tradeCount24h` | int64 | Number of trades over the last 24 hours |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+| `time` | int64 | Snapshot timestamp (Unix timestamp in milliseconds) |
 
 **Update cadence**: On change (any of `lastPrice`, `priceChange1h/24h`, or 24h volume updates triggers a push; typically every few seconds)
 
@@ -230,7 +230,7 @@ Real-time index price and mark price for a perpetual market.
 | `symbol` | string | Perpetual market symbol |
 | `indexPrice` | string | External reference price |
 | `markPrice` | string | Fair price used for unrealized PnL and liquidations |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+| `time` | int64 | Snapshot timestamp (Unix timestamp in milliseconds) |
 
 **Update cadence**: On change (a push is sent only when the index price or mark price changes)
 
@@ -272,7 +272,7 @@ Current funding rate and 24h average for a perpetual market.
 | `symbol` | string | Perpetual market symbol |
 | `fundingRate` | string | Current funding rate as a decimal (e.g., `"0.0001"` = 0.01%) |
 | `avgFundingRate24h` | string | 24h average funding rate as a decimal |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+| `time` | int64 | Snapshot timestamp (Unix timestamp in milliseconds) |
 
 **Update cadence**: On change
 
@@ -314,7 +314,7 @@ Total outstanding long/short exposure for a perpetual market.
 | `symbol` | string | Perpetual market symbol |
 | `openInterest` | string | Total open interest in base asset |
 | `openInterestValue` | string | Total open interest value in quote asset |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+| `time` | int64 | Snapshot timestamp (Unix timestamp in milliseconds) |
 
 **Update cadence**: On change
 
@@ -354,7 +354,7 @@ Ratio of long-to-short open positions. A value of `4.00` means there are 4× mor
 |---|---|---|
 | `symbol` | string | Perpetual market symbol |
 | `longShortRatio` | string | Long-to-short position ratio (`> 0`; `> 1` = more longs than shorts) |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+| `time` | int64 | Snapshot timestamp (Unix timestamp in milliseconds) |
 
 **Update cadence**: On change (a push is sent only when the long-short ratio changes)
 
@@ -405,7 +405,7 @@ In-progress OHLCV candle for the current interval. The candle updates as new tra
 | `low` | string | Lowest price in interval |
 | `close` | string | Current (or closing) price |
 | `volume` | string | Total volume traded in base asset |
-| `time` | int64 | Candle open time (epoch ms) |
+| `time` | int64 | Candle open time (Unix timestamp in milliseconds) |
 
 **Supported intervals**: `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `12h`, `1d`, `3d`, `1w`, `1M`
 
@@ -465,10 +465,10 @@ Real-time utilization rates, APRs, and supply/borrow totals for a lending asset.
 | `indexPrice` | string | Current index price of the asset |
 | `totalSupplied` | string | Total amount supplied to the pool |
 | `totalBorrowed` | string | Total amount borrowed from the pool |
-| `utilizationRate` | string | `totalBorrowed / totalSupplied` |
+| `utilizationRate` | string | Outstanding borrows / (available liquidity + outstanding borrows), where available liquidity = cash - locked liquidity. Borrows include accrued interest; all amounts use the same asset unit. Zero when both terms are zero. The denominator is not necessarily `totalSupplied`. |
 | `supplyApr` | string | Annualized yield for suppliers |
 | `borrowApr` | string | Annualized interest rate for borrowers |
-| `time` | int64 | Snapshot timestamp (epoch ms) |
+| `time` | int64 | Snapshot timestamp (Unix timestamp in milliseconds) |
 
 When no `asset` filter is provided, a separate push frame is delivered for each active lending asset.
 

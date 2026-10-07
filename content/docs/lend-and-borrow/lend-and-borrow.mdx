@@ -8,7 +8,7 @@ DeepX offers lending and borrowing features as part of its decentralized exchang
 
 ## How Lending Works
 
-When users deposit assets into the protocol, they automatically become part of the lending pools and begin to earn yield. The yield is generated from the interest paid by borrowers. The interest rates (Supply APR) are dynamic and fluctuate based on the supply and demand of each specific asset, determined by the utilization ratio which is calculated as `Total Borrowed / Total Deposits`. Yield is paid out periodically and compounds automatically.
+When users deposit assets into the protocol, they automatically become part of the lending pools and begin to earn yield. The yield is generated from the interest paid by borrowers. Supply APR varies with each asset's [utilization rate](/glossary#utilization): `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`. Yield is paid out periodically and compounds automatically.
 
 Every asset within the protocol is subject to a Supply Cap, which represents the maximum aggregate amount that all users are permitted to deposit. This cap is particularly crucial for less liquid or more volatile assets. By setting this limit, DeepX effectively reduces concentration risk and prevents a sudden surge in deposits and withdrawals from depleting the pool's assets.
 

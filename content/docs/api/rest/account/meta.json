@@ -23,6 +23,7 @@
     "listSubaccountBalanceEvents",
     "getSubaccountTransferLimit",
     "listSubaccountLiquidations",
+    "listSubaccountBankruptcyRecords",
     "listPerpOrdersByTx",
     "listSpotOrdersByTx",
     "getPerpOrderById",

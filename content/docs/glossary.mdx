@@ -101,11 +101,13 @@ Account Equity represents the net value of an account in USD, calculated as tota
 A parameter that determines what percentage of the interest paid by borrowers is allocated to the protocol. This portion of the interest helps fund the protocol's security and growth.
 
 #### Utilization
-Utilization, or **Utilization Rate**, measures the proportion of an asset currently being borrowed compared to the total supplied amount.
+**Utilization rate:** Ratio of outstanding borrows to effective lending liquidity, calculated as `borrows / (availableLiquidity + borrows)`, where `availableLiquidity = cash - lockedLiquidity`.
 
 ```math
-\text{Utilization Rate} = \frac{\text{Total Borrowed}}{\text{Total Supplied}}
+\text{UtilizationRate} = \frac{\text{Borrows}}{\text{AvailableLiquidity} + \text{Borrows}}
 ```
+
+Cash is the pool's cash balance; locked liquidity is the portion reserved and unavailable for lending or withdrawal. Borrows include accrued interest. All amounts use the same asset unit. When both available liquidity and borrows are zero, utilization is zero; when available liquidity is zero and borrows are positive, utilization is 100%. Effective lending liquidity is not necessarily equal to total user deposits.
 
 
 ## Perpetual Contract Trading

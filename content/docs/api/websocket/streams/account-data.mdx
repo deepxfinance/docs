@@ -18,7 +18,7 @@ Clients should initialize local state from the snapshot and apply individual upd
 
 ## 1. Perpetual Positions (`account@perp-positions`)
 
-Pushes position state whenever size, entry price, or unrealized PnL changes.
+Pushes position state whenever size, entry price, or PnL changes.
 
 **Channel**: `account@perp-positions`
 **Scope**: `subaccount` (required) — positions are per subaccount, not per wallet
@@ -49,6 +49,8 @@ Pushes position state whenever size, entry price, or unrealized PnL changes.
       "effectiveLeverage": "10",
       "liqPrice": "1850.00",
       "unrealizedPnl": "12.50",
+      "realizedPnl": "4.50",
+      "totalFee": "0.004044",
       "fundingPayment": "-0.138",
       "takeProfit": null,
       "stopLoss": null,
@@ -79,10 +81,12 @@ Use the snapshot as your complete current position list. In particular, replace 
     "subaccount": "{SUBACCOUNT_ADDRESS}",
     "side": "BUY",
     "qty": "0.01",
-      "entryPrice": "2025.48",
-      "effectiveLeverage": "10",
-      "liqPrice": "1850.00",
-      "unrealizedPnl": "13.82",
+    "entryPrice": "2025.48",
+    "effectiveLeverage": "10",
+    "liqPrice": "1850.00",
+    "unrealizedPnl": "13.82",
+    "realizedPnl": "4.50",
+    "totalFee": "0.004044",
     "fundingPayment": "-0.139",
     "takeProfit": null,
     "stopLoss": null,
@@ -97,20 +101,22 @@ Use the snapshot as your complete current position list. In particular, replace 
 | `symbol` | string | Perpetual market symbol |
 | `subaccount` | string | Subaccount address |
 | `side` | `"BUY"` \| `"SELL"` | Position direction (`BUY` = long, `SELL` = short) |
-| `qty` | string | Current position size in base asset. `"0"` indicates that the position has closed |
-| `entryPrice` | string | Average entry price |
+| `qty` | string | Current remaining position quantity; `"0"` indicates a closing update |
+| `entryPrice` | string | Average cost basis of the remaining position; unchanged by reductions and PnL settlements |
 | `effectiveLeverage` | string | Effective leverage cap in effect for this position |
-| `liqPrice` | string | Estimated liquidation price |
-| `unrealizedPnl` | string | Floating PnL at current mark price |
-| `fundingPayment` | string | Cumulative funding payments for this position lifecycle |
+| `liqPrice` | string \| null | Estimated liquidation price; `null` means the position cannot be liquidated even if the price reaches zero |
+| `realizedPnl` | string | Price PnL realized in this position through partial closes and PnL settlements; excludes funding and fees |
+| `unrealizedPnl` | string | Remaining price PnL at mark price relative to the latest PnL settlement price; excludes funding and fees |
+| `totalFee` | string | Net fees charged in this lifecycle, including trading, liquidation and any ADL fees, net of rebates; positive means cost |
+| `fundingPayment` | string | Net funding payments for this lifecycle; positive means income; excludes fees and price PnL |
 | `takeProfit` | string \| null | Take-profit trigger price, if set |
 | `stopLoss` | string \| null | Stop-loss trigger price, if set |
-| `time` | int64 | Position open time (epoch ms) |
-| `updatedTime` | int64 | Last state change timestamp (epoch ms) |
+| `time` | int64 | Position open time (Unix timestamp in milliseconds) |
+| `updatedTime` | int64 | Last state change timestamp (Unix timestamp in milliseconds) |
 
-**When a position closes**: After a position is fully closed, including through liquidation, you receive one position update with `qty: "0"`. Remove the position identified by `subaccount` and `symbol` from your local list. A `qty: "0"` update can be the last update you receive after closing your final position; do not wait for an empty array. An empty array is only an initial snapshot.
+**When a position closes**: After a position is fully closed, including through liquidation, you receive one position update with `qty: "0"`. Remove the position identified by `subaccount` and `symbol` from your local list. This update is not a historical position record. A `qty: "0"` update can be the last update you receive after closing your final position; do not wait for an empty array. An empty array is only an initial snapshot.
 
-The update preserves the position's `side`, `entryPrice`, `effectiveLeverage`, and opening `time`. `fundingPayment` is its final cumulative value and `updatedTime` is the close time. As the position is no longer open, `unrealizedPnl` and `liqPrice` are `"0"`, and `takeProfit` and `stopLoss` are `null`.
+The update preserves the position's `side`, `entryPrice`, `effectiveLeverage`, and opening `time`. `updatedTime` is the close time. As the position is no longer open, `unrealizedPnl` and `liqPrice` are `"0"` (distinct from `liqPrice: null` on an open position that cannot be liquidated even at a zero price), and `takeProfit` and `stopLoss` are `null`.
 
 **Incremental update** (fully closed position):
 ```json
@@ -125,6 +131,8 @@ The update preserves the position's `side`, `entryPrice`, `effectiveLeverage`, a
     "effectiveLeverage": "10",
     "liqPrice": "0",
     "unrealizedPnl": "0",
+    "realizedPnl": "4.50",
+    "totalFee": "0.004044",
     "fundingPayment": "-0.139",
     "takeProfit": null,
     "stopLoss": null,
@@ -134,7 +142,7 @@ The update preserves the position's `side`, `entryPrice`, `effectiveLeverage`, a
 }
 ```
 
-See [`PerpPosition`](/api/rest/account/getPerpPositions) for the shared field reference. Zero-quantity updates apply only to this WebSocket stream. Initial snapshots and REST position lists contain open positions only.
+See [`PerpPosition`](/api/rest/account/getPerpPositions) for the shared field reference. Zero-quantity updates apply only to this WebSocket stream and do not replace position history. Initial snapshots and REST position lists contain open positions only.
 
 ---
 

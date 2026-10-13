@@ -1,6 +1,6 @@
 import { generateFiles } from 'fumadocs-openapi';
 import { createOpenAPI } from 'fumadocs-openapi/server';
-import { syncContractDocs } from './sync-contract-docs.mjs';
+import { assertContractVersions, syncContractDocs } from './sync-contract-docs.mjs';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -30,6 +30,7 @@ async function main() {
   assertDirectory(contractsRoot);
   assertFile(sourceOpenApiPath);
   assertDirectory(sourceSchemasDir);
+  await assertContractVersions(contractsRoot, docsRoot);
 
   const tempDir = await mkdtemp(path.join(tmpdir(), 'deepx-docs-openapi-'));
   const tempSpecPath = path.join(tempDir, 'sdk-api.json');
@@ -159,6 +160,7 @@ function findRedoclyCli() {
   const candidates = [
     path.resolve(docsRoot, 'node_modules/@redocly/cli/bin/cli.js'),
     path.resolve(contractsRoot, 'node_modules/@redocly/cli/bin/cli.js'),
+    path.resolve(docsRoot, '..', 'deepx-api-contracts/node_modules/@redocly/cli/bin/cli.js'),
   ];
 
   const redoclyCli = candidates.find((candidate) => existsSync(candidate));

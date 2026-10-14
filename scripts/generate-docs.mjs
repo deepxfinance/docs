@@ -1,6 +1,6 @@
 import { generateFiles } from 'fumadocs-openapi';
 import { createOpenAPI } from 'fumadocs-openapi/server';
-import { syncContractDocs } from './sync-contract-docs.mjs';
+import { assertContractVersions, syncContractDocs } from './sync-contract-docs.mjs';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -30,6 +30,7 @@ async function main() {
   assertDirectory(contractsRoot);
   assertFile(sourceOpenApiPath);
   assertDirectory(sourceSchemasDir);
+  const releaseMetadata = await assertContractVersions(contractsRoot, docsRoot);
 
   const tempDir = await mkdtemp(path.join(tmpdir(), 'deepx-docs-openapi-'));
   const tempSpecPath = path.join(tempDir, 'sdk-api.json');
@@ -38,6 +39,7 @@ async function main() {
     await runRedoclyBundle(tempSpecPath);
 
     const document = JSON.parse(await readFile(tempSpecPath, 'utf8'));
+    filterServersForNetwork(document, releaseMetadata.network);
     normalizeSchemaRefs(document);
 
     await writeFile(outputSpecPath, `${JSON.stringify(document, null, 2)}\n`);
@@ -74,6 +76,22 @@ async function main() {
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+}
+
+function filterServersForNetwork(document, network) {
+  const expectedDescription =
+    network === 'devnet' ? 'Devnet Server' : 'Testnet Server';
+  const matchingServers = (document.servers ?? []).filter(
+    (server) => server.description === expectedDescription,
+  );
+
+  if (matchingServers.length !== 1) {
+    throw new Error(
+      `Expected exactly one ${expectedDescription} in OpenAPI servers, found ${matchingServers.length}`,
+    );
+  }
+
+  document.servers = matchingServers;
 }
 
 function normalizeSchemaRefs(document) {
@@ -159,6 +177,7 @@ function findRedoclyCli() {
   const candidates = [
     path.resolve(docsRoot, 'node_modules/@redocly/cli/bin/cli.js'),
     path.resolve(contractsRoot, 'node_modules/@redocly/cli/bin/cli.js'),
+    path.resolve(docsRoot, '..', 'deepx-api-contracts/node_modules/@redocly/cli/bin/cli.js'),
   ];
 
   const redoclyCli = candidates.find((candidate) => existsSync(candidate));

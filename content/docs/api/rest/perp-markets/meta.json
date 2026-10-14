@@ -4,6 +4,8 @@
   "pages": [
     "listPerpMarkets",
     "getPerpMarket",
+    "listPerpPrices",
+    "getPerpPrices",
     "getPerpCandles",
     "getMarketPerpTrades",
     "getPerpOrderbook",

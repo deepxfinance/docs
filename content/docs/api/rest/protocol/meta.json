@@ -1,0 +1,7 @@
+{
+  "title": "Protocol",
+  "description": "Protocol-wide aggregate statistics.",
+  "pages": [
+    "getProtocolStats"
+  ]
+}

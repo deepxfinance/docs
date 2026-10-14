@@ -3,7 +3,9 @@
   "pages": [
     "guides",
     "system",
+    "protocol",
     "account",
+    "prices",
     "spot-markets",
     "perp-markets",
     "lending-markets"

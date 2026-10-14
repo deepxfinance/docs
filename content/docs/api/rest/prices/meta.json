@@ -1,0 +1,7 @@
+{
+  "title": "Prices",
+  "description": "Cross-market asset index prices for USDC valuation.",
+  "pages": [
+    "listAssetPrices"
+  ]
+}

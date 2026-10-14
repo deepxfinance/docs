@@ -1,5 +1,5 @@
 {
-  "network": "devnet",
+  "network": "testnet",
   "currentApiVersion": "1.7.0",
   "contractsRef": "2c481a0ab43cbb855e23c86a927f177fd21eddb7",
   "releaseDates": {

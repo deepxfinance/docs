@@ -11,8 +11,8 @@
   },
   "servers": [
     {
-      "url": "https://api-devnet.deepx.fi/v1",
-      "description": "Devnet Server"
+      "url": "https://api-testnet.deepx.fi/v1",
+      "description": "Testnet Server"
     }
   ],
   "tags": [

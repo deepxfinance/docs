@@ -138,6 +138,17 @@ export async function assertContractVersions(contractsRoot, docsRoot = defaultDo
     readFile(openApiPath, 'utf8'),
     readFile(websocketPath, 'utf8'),
   ]);
+  const unreleasedVersions = [
+    ...overview.matchAll(
+      /^### v(\d+\.\d+\.\d+)[ \t]+\(unreleased\)[ \t]*$/gim,
+    ),
+  ].map((match) => `v${match[1]}`);
+  if (unreleasedVersions.length > 0) {
+    throw new Error(
+      `API changelog headings ${unreleasedVersions.join(', ')} are marked (Unreleased) in ${overviewPath}. Remove each suffix manually before running "npm run generate:docs".`,
+    );
+  }
+
   const releaseMetadata = await readReleaseMetadata(docsRoot);
   const overviewVersion = matchVersion(
     overview,

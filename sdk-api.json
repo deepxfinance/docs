@@ -2,7 +2,7 @@
   "openapi": "3.2.0",
   "info": {
     "title": "DeepX API",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "description": "# REST API Guide\n\n## General API Information\n\n- **Time Format**: All timestamps are in milliseconds (ms) by default.\n- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:\n  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.\n  * With `startTime`, returns oldest items from `startTime` up to the `limit`.\n  * With `endTime`, returns most recent items up to `endTime` and the `limit`.\n  * With both, behaves like `startTime` but does not exceed `endTime`.\n- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:\n  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.\n  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, and lending-market history use this pattern.\n  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.\n",
     "license": {
       "name": "MIT",
@@ -21,6 +21,10 @@
       "description": "Connectivity, server health, and server time."
     },
     {
+      "name": "Protocol",
+      "description": "Protocol-wide aggregate statistics."
+    },
+    {
       "name": "Spot Markets",
       "description": "Public market data for Spot pairs (tickers, depth, trades)."
     },
@@ -35,6 +39,10 @@
     {
       "name": "Lending Markets",
       "description": "Lending and borrowing market parameters and real-time data."
+    },
+    {
+      "name": "Prices",
+      "description": "Cross-market asset index prices for USDC valuation."
     }
   ],
   "paths": {
@@ -177,6 +185,243 @@
                 "example": {
                   "code": 10010,
                   "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stats": {
+      "get": {
+        "tags": [
+          "Protocol"
+        ],
+        "summary": "Get Protocol Stats",
+        "security": [],
+        "description": "Retrieves protocol-wide aggregate statistics across spot, perpetual, and lending markets.",
+        "operationId": "getProtocolStats",
+        "responses": {
+          "200": {
+            "description": "The current protocol statistics snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Protocol-wide aggregate statistics in USDC.\n",
+                  "x-on-chain": {
+                    "mappings": {
+                      "spotVolume24h": "(indexer) matched spot trade quote values in the trailing 24-hour window, converted to USDC",
+                      "perpVolume24h": "(indexer) matched perpetual trade quote values in the trailing 24-hour window, converted to USDC",
+                      "openInterestValue": "(indexer) single-sided open interest by market valued at mark price",
+                      "lendingTotalSuppliedValue": "(indexer) reported lending-market supplied totals valued at index price",
+                      "lendingTotalBorrowedValue": "(indexer) reported lending-market borrowed totals valued at index price",
+                      "totalValueLocked": "(indexer) underlying user assets held in protocol custody, counted once and valued at index price",
+                      "totalWallets": "(indexer) distinct primary owner addresses that have created a subaccount since genesis",
+                      "activeTradingWallets24h": "(indexer) distinct primary owner addresses with a qualifying spot or perpetual fill in the trailing 24-hour window",
+                      "time": "(indexer) common complete-data cutoff timestamp for this snapshot"
+                    }
+                  },
+                  "required": [
+                    "time",
+                    "spotVolume24h",
+                    "perpVolume24h",
+                    "openInterestValue",
+                    "lendingTotalSuppliedValue",
+                    "lendingTotalBorrowedValue",
+                    "totalValueLocked",
+                    "totalWallets",
+                    "activeTradingWallets24h"
+                  ],
+                  "properties": {
+                    "time": {
+                      "description": "Time through which the statistics include data (Unix timestamp in milliseconds).",
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1000000000000,
+                      "maximum": 4102444800000,
+                      "example": 1678886400000
+                    },
+                    "spotVolume24h": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "USDC value of matched spot trades with execution times in the interval (`time` minus 24 hours, `time`]. Each matched fill is counted once.\n",
+                      "example": "18234500.00"
+                    },
+                    "perpVolume24h": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "USDC value of matched perpetual trades with execution times in the interval (`time` minus 24 hours, `time`]. Each matched fill is counted once.\n",
+                      "example": "54234500.00"
+                    },
+                    "openInterestValue": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "Sum across perpetual markets of each market's single-sided open-interest quantity multiplied by its mark price at `time`. The quantity is counted once.\n",
+                      "example": "21068450.00"
+                    },
+                    "lendingTotalSuppliedValue": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "Total supplied across all lending pools, valued in USDC at current index prices.",
+                      "example": "7400000.00"
+                    },
+                    "lendingTotalBorrowedValue": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "Total borrowed across all lending pools, valued in USDC at current index prices.",
+                      "example": "3600000.00"
+                    },
+                    "totalValueLocked": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "USDC value of underlying user assets actually held in protocol.",
+                      "example": "152300000.00"
+                    },
+                    "totalWallets": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0,
+                      "description": "Number of distinct primary owner addresses that have created at least one subaccount since genesis. Each address is counted once, including after all of its subaccounts have been deleted.\n",
+                      "example": 184205
+                    },
+                    "activeTradingWallets24h": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0,
+                      "description": "Number of distinct primary owner addresses with at least one spot or perpetual matched fill in the trailing 24-hour window. An owner is counted once across products and subaccounts; a trade submitted by a delegate is attributed to the primary owner of the traded subaccount.\n",
+                      "example": 8412
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
                 }
               }
             }
@@ -1765,7 +2010,7 @@
                       "description": "Included only when requested with `include=transferLimits`. Limits for different assets share the same account margin capacity and are not additive.\n"
                     },
                     "time": {
-                      "description": "Snapshot timestamp in milliseconds.",
+                      "description": "Timestamp of the account data used in this response, in milliseconds.",
                       "type": "integer",
                       "format": "int64",
                       "minimum": 1000000000000,
@@ -3008,6 +3253,33 @@
             }
           },
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by order status: a comma-separated list of OrderStatus values. A record matches when its status equals any listed value; for example, `status=CANCELED,SYSTEM_CANCELED` returns orders canceled both by the user and by the protocol. Omit to return all statuses.\n",
+            "example": [
+              "CANCELED",
+              "SYSTEM_CANCELED"
+            ],
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
+                "enum": [
+                  "OPEN",
+                  "PARTIALLY_FILLED",
+                  "FILLED",
+                  "CANCELED",
+                  "SYSTEM_CANCELED"
+                ],
+                "example": "SYSTEM_CANCELED"
+              }
+            },
+            "style": "form",
+            "explode": false
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -3125,7 +3397,9 @@
                               "fee",
                               "feeAsset",
                               "blockNumber",
-                              "txHash"
+                              "txHash",
+                              "cancelReason",
+                              "cancelBlockNumber"
                             ],
                             "properties": {
                               "orderId": {
@@ -3169,16 +3443,15 @@
                               },
                               "status": {
                                 "type": "string",
-                                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                                 "enum": [
                                   "OPEN",
                                   "PARTIALLY_FILLED",
                                   "FILLED",
                                   "CANCELED",
-                                  "REJECTED",
-                                  "EXPIRED"
+                                  "SYSTEM_CANCELED"
                                 ],
-                                "example": "FILLED"
+                                "example": "SYSTEM_CANCELED"
                               },
                               "time": {
                                 "description": "Order creation timestamp in milliseconds.",
@@ -3295,9 +3568,31 @@
                                 "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
                               },
                               "cancelReason": {
-                                "type": "string",
-                                "description": "Reason why the order was canceled, if applicable.",
-                                "example": "None"
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                                    "enum": [
+                                      "INSUFFICIENT_MARGIN",
+                                      "TRIGGERED_CANCEL",
+                                      "NO_COUNTERPARTY",
+                                      "IOC_UNFILLED",
+                                      "SLIPPAGE_TOO_HIGH",
+                                      "PRICE_DEVIATION_TOO_HIGH",
+                                      "MARKET_CLOSED",
+                                      "SYSTEM_MAINTENANCE",
+                                      "SETTLEMENT_FAILED",
+                                      "ACCOUNT_FROZEN",
+                                      "INSUFFICIENT_BALANCE",
+                                      "UNKNOWN"
+                                    ],
+                                    "example": "INSUFFICIENT_MARGIN"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
                               },
                               "cancelBlockNumber": {
                                 "type": [
@@ -3305,7 +3600,7 @@
                                   "null"
                                 ],
                                 "format": "int64",
-                                "description": "Block number at which the order was canceled, if applicable.",
+                                "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
                                 "example": 8996500
                               }
                             }
@@ -3621,7 +3916,9 @@
                               "fee",
                               "feeAsset",
                               "blockNumber",
-                              "txHash"
+                              "txHash",
+                              "cancelReason",
+                              "cancelBlockNumber"
                             ],
                             "properties": {
                               "orderId": {
@@ -3665,16 +3962,15 @@
                               },
                               "status": {
                                 "type": "string",
-                                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                                 "enum": [
                                   "OPEN",
                                   "PARTIALLY_FILLED",
                                   "FILLED",
                                   "CANCELED",
-                                  "REJECTED",
-                                  "EXPIRED"
+                                  "SYSTEM_CANCELED"
                                 ],
-                                "example": "FILLED"
+                                "example": "SYSTEM_CANCELED"
                               },
                               "time": {
                                 "description": "Order creation timestamp in milliseconds.",
@@ -3791,9 +4087,31 @@
                                 "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
                               },
                               "cancelReason": {
-                                "type": "string",
-                                "description": "Reason why the order was canceled, if applicable.",
-                                "example": "None"
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                                    "enum": [
+                                      "INSUFFICIENT_MARGIN",
+                                      "TRIGGERED_CANCEL",
+                                      "NO_COUNTERPARTY",
+                                      "IOC_UNFILLED",
+                                      "SLIPPAGE_TOO_HIGH",
+                                      "PRICE_DEVIATION_TOO_HIGH",
+                                      "MARKET_CLOSED",
+                                      "SYSTEM_MAINTENANCE",
+                                      "SETTLEMENT_FAILED",
+                                      "ACCOUNT_FROZEN",
+                                      "INSUFFICIENT_BALANCE",
+                                      "UNKNOWN"
+                                    ],
+                                    "example": "INSUFFICIENT_MARGIN"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
                               },
                               "cancelBlockNumber": {
                                 "type": [
@@ -3801,7 +4119,7 @@
                                   "null"
                                 ],
                                 "format": "int64",
-                                "description": "Block number at which the order was canceled, if applicable.",
+                                "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
                                 "example": 8996500
                               }
                             }
@@ -4797,6 +5115,33 @@
             }
           },
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by order status: a comma-separated list of OrderStatus values. A record matches when its status equals any listed value; for example, `status=CANCELED,SYSTEM_CANCELED` returns orders canceled both by the user and by the protocol. Omit to return all statuses.\n",
+            "example": [
+              "CANCELED",
+              "SYSTEM_CANCELED"
+            ],
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
+                "enum": [
+                  "OPEN",
+                  "PARTIALLY_FILLED",
+                  "FILLED",
+                  "CANCELED",
+                  "SYSTEM_CANCELED"
+                ],
+                "example": "SYSTEM_CANCELED"
+              }
+            },
+            "style": "form",
+            "explode": false
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -4912,7 +5257,9 @@
                               "reduceOnly",
                               "frozen",
                               "blockNumber",
-                              "txHash"
+                              "txHash",
+                              "cancelReason",
+                              "cancelBlockNumber"
                             ],
                             "properties": {
                               "orderId": {
@@ -4972,16 +5319,15 @@
                               },
                               "status": {
                                 "type": "string",
-                                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                                "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                                 "enum": [
                                   "OPEN",
                                   "PARTIALLY_FILLED",
                                   "FILLED",
                                   "CANCELED",
-                                  "REJECTED",
-                                  "EXPIRED"
+                                  "SYSTEM_CANCELED"
                                 ],
-                                "example": "FILLED"
+                                "example": "SYSTEM_CANCELED"
                               },
                               "price": {
                                 "type": [
@@ -5061,6 +5407,42 @@
                                   }
                                 ],
                                 "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
+                              },
+                              "cancelReason": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                                    "enum": [
+                                      "INSUFFICIENT_MARGIN",
+                                      "TRIGGERED_CANCEL",
+                                      "NO_COUNTERPARTY",
+                                      "IOC_UNFILLED",
+                                      "SLIPPAGE_TOO_HIGH",
+                                      "PRICE_DEVIATION_TOO_HIGH",
+                                      "MARKET_CLOSED",
+                                      "SYSTEM_MAINTENANCE",
+                                      "SETTLEMENT_FAILED",
+                                      "ACCOUNT_FROZEN",
+                                      "INSUFFICIENT_BALANCE",
+                                      "UNKNOWN"
+                                    ],
+                                    "example": "INSUFFICIENT_MARGIN"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
+                              },
+                              "cancelBlockNumber": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "format": "int64",
+                                "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
+                                "example": 8689320
                               }
                             }
                           }
@@ -5317,7 +5699,9 @@
                       "reduceOnly",
                       "frozen",
                       "blockNumber",
-                      "txHash"
+                      "txHash",
+                      "cancelReason",
+                      "cancelBlockNumber"
                     ],
                     "properties": {
                       "orderId": {
@@ -5377,16 +5761,15 @@
                       },
                       "status": {
                         "type": "string",
-                        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                         "enum": [
                           "OPEN",
                           "PARTIALLY_FILLED",
                           "FILLED",
                           "CANCELED",
-                          "REJECTED",
-                          "EXPIRED"
+                          "SYSTEM_CANCELED"
                         ],
-                        "example": "FILLED"
+                        "example": "SYSTEM_CANCELED"
                       },
                       "price": {
                         "type": [
@@ -5466,6 +5849,42 @@
                           }
                         ],
                         "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
+                      },
+                      "cancelReason": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                            "enum": [
+                              "INSUFFICIENT_MARGIN",
+                              "TRIGGERED_CANCEL",
+                              "NO_COUNTERPARTY",
+                              "IOC_UNFILLED",
+                              "SLIPPAGE_TOO_HIGH",
+                              "PRICE_DEVIATION_TOO_HIGH",
+                              "MARKET_CLOSED",
+                              "SYSTEM_MAINTENANCE",
+                              "SETTLEMENT_FAILED",
+                              "ACCOUNT_FROZEN",
+                              "INSUFFICIENT_BALANCE",
+                              "UNKNOWN"
+                            ],
+                            "example": "INSUFFICIENT_MARGIN"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
+                      },
+                      "cancelBlockNumber": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "format": "int64",
+                        "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
+                        "example": 8689320
                       }
                     }
                   }
@@ -6468,10 +6887,16 @@
                             "required": [
                               "id",
                               "asset",
+                              "time",
+                              "from",
+                              "to",
                               "balance",
                               "balanceChange",
                               "changeType",
-                              "time"
+                              "txHash",
+                              "txHashType",
+                              "blockNumber",
+                              "crossChain"
                             ],
                             "properties": {
                               "id": {
@@ -6622,32 +7047,26 @@
                                 "example": "0x7cf219b32b35000e20677b2c149c92b785bd8417c3c0834376a8a1df31734d6a"
                               },
                               "txHashType": {
-                                "type": "string",
-                                "description": "The format of txHash.",
                                 "oneOf": [
                                   {
                                     "type": "null"
                                   },
                                   {
+                                    "type": "string",
                                     "enum": [
                                       "EVM",
                                       "Extrinsic"
                                     ]
                                   }
                                 ],
+                                "description": "The format of txHash.",
                                 "example": "EVM"
                               },
-                              "height": {
+                              "blockNumber": {
                                 "type": "integer",
                                 "format": "int64",
-                                "description": "Block number.",
+                                "description": "Block number at which the event occurred.",
                                 "example": 28565243
-                              },
-                              "eventIndex": {
-                                "type": "integer",
-                                "format": "int64",
-                                "description": "Position of this event within the transaction.",
-                                "example": 7
                               },
                               "crossChain": {
                                 "oneOf": [
@@ -6965,7 +7384,7 @@
         ],
         "summary": "Get Subaccount Transfer Limit",
         "security": [],
-        "description": "Retrieves the maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. When autoBorrow is enabled, the amount may include a new borrow after the complete transferable deposit has been removed. The quantity uses the asset's own unit and is recalculated when a transfer or withdrawal is submitted.\n",
+        "description": "Retrieves the maximum amount of an asset that can be transferred out of the subaccount — to another subaccount or withdrawn cross-chain — while retaining its current positions, orders, and debt. When autoBorrow is enabled, the amount may include a new borrow after the complete transferable deposit has been removed. The quantity uses the asset's own unit.\n",
         "operationId": "getSubaccountTransferLimit",
         "parameters": [
           {
@@ -7423,7 +7842,7 @@
                               "canceledOrders",
                               "bankrupt",
                               "txHash",
-                              "height"
+                              "blockNumber"
                             ],
                             "x-on-chain": {
                               "struct": "LiquidationRecord",
@@ -7442,7 +7861,7 @@
                                 "id": "(indexer) global cursor",
                                 "time": "(indexer) block timestamp",
                                 "txHash": "(indexer) extrinsic hash",
-                                "height": "(indexer) block number"
+                                "blockNumber": "(indexer) block number"
                               }
                             },
                             "properties": {
@@ -7751,7 +8170,7 @@
                                 "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
                                 "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
                               },
-                              "height": {
+                              "blockNumber": {
                                 "type": "integer",
                                 "format": "int64",
                                 "minimum": 0,
@@ -8070,7 +8489,7 @@
                               "insuranceFund",
                               "payments",
                               "txHash",
-                              "height"
+                              "blockNumber"
                             ],
                             "x-on-chain": {
                               "struct": "ResolveBankruptRecord",
@@ -8083,7 +8502,7 @@
                                 "insuranceFund": "if_address",
                                 "payments": "detail",
                                 "txHash": "(indexer) extrinsic hash",
-                                "height": "(indexer) block number"
+                                "blockNumber": "(indexer) block number"
                               }
                             },
                             "properties": {
@@ -8151,7 +8570,7 @@
                                 "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
                                 "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
                               },
-                              "height": {
+                              "blockNumber": {
                                 "type": "integer",
                                 "format": "int64",
                                 "minimum": 0,
@@ -8164,6 +8583,247 @@
                       }
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10007,
+                  "msg": "Market 'BTC-USDC' does not exist or is not active.",
+                  "param": "symbol"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/subaccounts/{address}/bad-debts": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "List Subaccount Bad Debts",
+        "security": [],
+        "description": "Retrieves the outstanding insurance-fund recovery claims against a subaccount, aggregated per asset. Eligible wallet deposits automatically repay matching recovery claims after existing borrowing is repaid. Outstanding claims restrict some account operations. Returns an empty array when no recovery claims remain.\n",
+        "operationId": "listSubaccountBadDebts",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "description": "The subaccount address.",
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$",
+              "description": "An Ethereum-compatible address in 0x-prefixed hex format (20 bytes).",
+              "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subaccount's outstanding claims, one entry per asset.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "description": "The outstanding insurance-fund recovery claims of a subaccount, one entry per asset.",
+                  "items": {
+                    "type": "object",
+                    "description": "A remaining insurance-fund recovery claim against a subaccount in one asset. Eligible wallet deposits automatically repay matching recovery claims after existing borrowing is repaid. An outstanding claim restricts some account operations until repaid.\n",
+                    "x-on-chain": {
+                      "struct": "BadDebtReceivable",
+                      "registry": "pallets/lending/src/types.rs",
+                      "event": "pallet_lending::Event::BadDebtReceivableCreated / BadDebtReceivableRepaid",
+                      "mappings": {
+                        "asset": "asset",
+                        "amount": "(indexer) created minus repaid, aggregated per asset across lending markets"
+                      }
+                    },
+                    "required": [
+                      "asset",
+                      "amount"
+                    ],
+                    "properties": {
+                      "asset": {
+                        "type": "string",
+                        "description": "The asset ticker symbol of the outstanding claim.",
+                        "example": "USDC"
+                      },
+                      "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "Remaining amount still owed. Decreases as the portion of an eligible wallet deposit remaining after repayment of existing borrowing is applied to matching recovery claims. Zero-amount claims are removed.\n",
+                        "example": "1200.00"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -8398,7 +9058,9 @@
                       "fee",
                       "feeAsset",
                       "blockNumber",
-                      "txHash"
+                      "txHash",
+                      "cancelReason",
+                      "cancelBlockNumber"
                     ],
                     "properties": {
                       "orderId": {
@@ -8442,16 +9104,15 @@
                       },
                       "status": {
                         "type": "string",
-                        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                         "enum": [
                           "OPEN",
                           "PARTIALLY_FILLED",
                           "FILLED",
                           "CANCELED",
-                          "REJECTED",
-                          "EXPIRED"
+                          "SYSTEM_CANCELED"
                         ],
-                        "example": "FILLED"
+                        "example": "SYSTEM_CANCELED"
                       },
                       "time": {
                         "description": "Order creation timestamp in milliseconds.",
@@ -8568,9 +9229,31 @@
                         "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
                       },
                       "cancelReason": {
-                        "type": "string",
-                        "description": "Reason why the order was canceled, if applicable.",
-                        "example": "None"
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                            "enum": [
+                              "INSUFFICIENT_MARGIN",
+                              "TRIGGERED_CANCEL",
+                              "NO_COUNTERPARTY",
+                              "IOC_UNFILLED",
+                              "SLIPPAGE_TOO_HIGH",
+                              "PRICE_DEVIATION_TOO_HIGH",
+                              "MARKET_CLOSED",
+                              "SYSTEM_MAINTENANCE",
+                              "SETTLEMENT_FAILED",
+                              "ACCOUNT_FROZEN",
+                              "INSUFFICIENT_BALANCE",
+                              "UNKNOWN"
+                            ],
+                            "example": "INSUFFICIENT_MARGIN"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
                       },
                       "cancelBlockNumber": {
                         "type": [
@@ -8578,7 +9261,7 @@
                           "null"
                         ],
                         "format": "int64",
-                        "description": "Block number at which the order was canceled, if applicable.",
+                        "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
                         "example": 8996500
                       }
                     }
@@ -8815,7 +9498,9 @@
                       "reduceOnly",
                       "frozen",
                       "blockNumber",
-                      "txHash"
+                      "txHash",
+                      "cancelReason",
+                      "cancelBlockNumber"
                     ],
                     "properties": {
                       "orderId": {
@@ -8875,16 +9560,15 @@
                       },
                       "status": {
                         "type": "string",
-                        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                         "enum": [
                           "OPEN",
                           "PARTIALLY_FILLED",
                           "FILLED",
                           "CANCELED",
-                          "REJECTED",
-                          "EXPIRED"
+                          "SYSTEM_CANCELED"
                         ],
-                        "example": "FILLED"
+                        "example": "SYSTEM_CANCELED"
                       },
                       "price": {
                         "type": [
@@ -8964,6 +9648,42 @@
                           }
                         ],
                         "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
+                      },
+                      "cancelReason": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                            "enum": [
+                              "INSUFFICIENT_MARGIN",
+                              "TRIGGERED_CANCEL",
+                              "NO_COUNTERPARTY",
+                              "IOC_UNFILLED",
+                              "SLIPPAGE_TOO_HIGH",
+                              "PRICE_DEVIATION_TOO_HIGH",
+                              "MARKET_CLOSED",
+                              "SYSTEM_MAINTENANCE",
+                              "SETTLEMENT_FAILED",
+                              "ACCOUNT_FROZEN",
+                              "INSUFFICIENT_BALANCE",
+                              "UNKNOWN"
+                            ],
+                            "example": "INSUFFICIENT_MARGIN"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
+                      },
+                      "cancelBlockNumber": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "format": "int64",
+                        "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
+                        "example": 8689320
                       }
                     }
                   }
@@ -9210,7 +9930,9 @@
                     "fee",
                     "feeAsset",
                     "blockNumber",
-                    "txHash"
+                    "txHash",
+                    "cancelReason",
+                    "cancelBlockNumber"
                   ],
                   "properties": {
                     "orderId": {
@@ -9254,16 +9976,15 @@
                     },
                     "status": {
                       "type": "string",
-                      "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                      "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                       "enum": [
                         "OPEN",
                         "PARTIALLY_FILLED",
                         "FILLED",
                         "CANCELED",
-                        "REJECTED",
-                        "EXPIRED"
+                        "SYSTEM_CANCELED"
                       ],
-                      "example": "FILLED"
+                      "example": "SYSTEM_CANCELED"
                     },
                     "time": {
                       "description": "Order creation timestamp in milliseconds.",
@@ -9380,9 +10101,31 @@
                       "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
                     },
                     "cancelReason": {
-                      "type": "string",
-                      "description": "Reason why the order was canceled, if applicable.",
-                      "example": "None"
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                          "enum": [
+                            "INSUFFICIENT_MARGIN",
+                            "TRIGGERED_CANCEL",
+                            "NO_COUNTERPARTY",
+                            "IOC_UNFILLED",
+                            "SLIPPAGE_TOO_HIGH",
+                            "PRICE_DEVIATION_TOO_HIGH",
+                            "MARKET_CLOSED",
+                            "SYSTEM_MAINTENANCE",
+                            "SETTLEMENT_FAILED",
+                            "ACCOUNT_FROZEN",
+                            "INSUFFICIENT_BALANCE",
+                            "UNKNOWN"
+                          ],
+                          "example": "INSUFFICIENT_MARGIN"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
                     },
                     "cancelBlockNumber": {
                       "type": [
@@ -9390,7 +10133,7 @@
                         "null"
                       ],
                       "format": "int64",
-                      "description": "Block number at which the order was canceled, if applicable.",
+                      "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
                       "example": 8996500
                     }
                   }
@@ -9635,7 +10378,9 @@
                     "reduceOnly",
                     "frozen",
                     "blockNumber",
-                    "txHash"
+                    "txHash",
+                    "cancelReason",
+                    "cancelBlockNumber"
                   ],
                   "properties": {
                     "orderId": {
@@ -9695,16 +10440,15 @@
                     },
                     "status": {
                       "type": "string",
-                      "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+                      "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
                       "enum": [
                         "OPEN",
                         "PARTIALLY_FILLED",
                         "FILLED",
                         "CANCELED",
-                        "REJECTED",
-                        "EXPIRED"
+                        "SYSTEM_CANCELED"
                       ],
-                      "example": "FILLED"
+                      "example": "SYSTEM_CANCELED"
                     },
                     "price": {
                       "type": [
@@ -9784,6 +10528,42 @@
                         }
                       ],
                       "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
+                    },
+                    "cancelReason": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                          "enum": [
+                            "INSUFFICIENT_MARGIN",
+                            "TRIGGERED_CANCEL",
+                            "NO_COUNTERPARTY",
+                            "IOC_UNFILLED",
+                            "SLIPPAGE_TOO_HIGH",
+                            "PRICE_DEVIATION_TOO_HIGH",
+                            "MARKET_CLOSED",
+                            "SYSTEM_MAINTENANCE",
+                            "SETTLEMENT_FAILED",
+                            "ACCOUNT_FROZEN",
+                            "INSUFFICIENT_BALANCE",
+                            "UNKNOWN"
+                          ],
+                          "example": "INSUFFICIENT_MARGIN"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
+                    },
+                    "cancelBlockNumber": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "format": "int64",
+                      "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
+                      "example": 8689320
                     }
                   }
                 }
@@ -9873,6 +10653,201 @@
                   "code": 10007,
                   "msg": "Market 'BTC-USDC' does not exist or is not active.",
                   "param": "symbol"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/prices": {
+      "get": {
+        "tags": [
+          "Prices"
+        ],
+        "summary": "List Asset Prices",
+        "security": [],
+        "description": "Retrieves the current USDC-denominated index price of every listed asset: the union of perpetual base and quote assets, spot assets, and lending assets. Use this table to value arbitrary balances in USDC with a single request; for perpetual mark prices, use the perpetual prices endpoints. If no asset matches the provided filter, an empty array `[]` is returned.\n",
+        "operationId": "listAssetPrices",
+        "parameters": [
+          {
+            "name": "asset",
+            "in": "query",
+            "required": false,
+            "description": "Filter by asset symbol. If omitted, prices are returned for all assets.",
+            "example": "ETH",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of asset index prices.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "description": "Index price snapshots for every listed asset: the union of perpetual base and quote assets, spot assets, and lending assets.\n",
+                  "items": {
+                    "type": "object",
+                    "description": "The current USDC-denominated index price of a single asset.\n",
+                    "required": [
+                      "asset",
+                      "indexPrice",
+                      "time"
+                    ],
+                    "properties": {
+                      "asset": {
+                        "type": "string",
+                        "description": "The asset symbol.",
+                        "example": "ETH"
+                      },
+                      "indexPrice": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "The current index price of the asset denominated in USDC. The quote asset USDC itself is included with a price of 1.\n",
+                        "example": "2035.16"
+                      },
+                      "time": {
+                        "description": "Time in milliseconds when this price was recorded.\n",
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1000000000000,
+                        "maximum": 4102444800000,
+                        "example": 1678886400000
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
                 }
               }
             }
@@ -12566,6 +13541,454 @@
         }
       }
     },
+    "/v1/perp/prices": {
+      "get": {
+        "tags": [
+          "Perp Markets"
+        ],
+        "summary": "List Perpetual Prices",
+        "security": [],
+        "description": "Retrieves the index and mark prices for all perpetual markets.\n",
+        "operationId": "listPerpPrices",
+        "responses": {
+          "200": {
+            "description": "A list of perpetual price snapshots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "description": "Real-time price snapshot for a perpetual market, combining the Index Price and the Mark Price.\n",
+                    "required": [
+                      "symbol",
+                      "indexPrice",
+                      "markPrice",
+                      "time"
+                    ],
+                    "properties": {
+                      "symbol": {
+                        "type": "string",
+                        "description": "A perpetual market symbol.",
+                        "enum": [
+                          "BTC-USDC",
+                          "ETH-USDC",
+                          "SOL-USDC"
+                        ],
+                        "example": "BTC-USDC"
+                      },
+                      "indexPrice": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "The fair spot-market value of the underlying asset.\n",
+                        "example": "2035.16"
+                      },
+                      "markPrice": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "The reference price used to calculate unrealized PnL and trigger liquidations. Derived from the index price with a bounded premium.\n",
+                        "example": "2034.99"
+                      },
+                      "time": {
+                        "description": "Time in milliseconds for the market data used to calculate these prices.",
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1000000000000,
+                        "maximum": 4102444800000,
+                        "example": 1678886400000
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/perp/markets/{symbol}/prices": {
+      "get": {
+        "tags": [
+          "Perp Markets"
+        ],
+        "summary": "Get Perpetual Prices",
+        "security": [],
+        "description": "Retrieves the index and mark prices for a specified perpetual market.",
+        "operationId": "getPerpPrices",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "description": "The symbol of the perpetual market.",
+            "example": "BTC-USDC",
+            "schema": {
+              "type": "string",
+              "description": "A perpetual market symbol.",
+              "enum": [
+                "BTC-USDC",
+                "ETH-USDC",
+                "SOL-USDC"
+              ],
+              "example": "BTC-USDC"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The perpetual price snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Real-time price snapshot for a perpetual market, combining the Index Price and the Mark Price.\n",
+                  "required": [
+                    "symbol",
+                    "indexPrice",
+                    "markPrice",
+                    "time"
+                  ],
+                  "properties": {
+                    "symbol": {
+                      "type": "string",
+                      "description": "A perpetual market symbol.",
+                      "enum": [
+                        "BTC-USDC",
+                        "ETH-USDC",
+                        "SOL-USDC"
+                      ],
+                      "example": "BTC-USDC"
+                    },
+                    "indexPrice": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "The fair spot-market value of the underlying asset.\n",
+                      "example": "2035.16"
+                    },
+                    "markPrice": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "The reference price used to calculate unrealized PnL and trigger liquidations. Derived from the index price with a bounded premium.\n",
+                      "example": "2034.99"
+                    },
+                    "time": {
+                      "description": "Time in milliseconds for the market data used to calculate these prices.",
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1000000000000,
+                      "maximum": 4102444800000,
+                      "example": 1678886400000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10007,
+                  "msg": "Market 'BTC-USDC' does not exist or is not active.",
+                  "param": "symbol"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/perp/markets/{symbol}/candles": {
       "get": {
         "tags": [
@@ -13715,7 +15138,7 @@
                     "openInterestValue": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Open interest value in USD.",
+                      "description": "Open interest value in USDC, calculated as the market's single-sided open-interest quantity multiplied by its mark price.",
                       "example": "210600.00"
                     }
                   }
@@ -14043,7 +15466,7 @@
                       "openInterestValue": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Open interest value in USD.",
+                        "description": "Open interest value in USDC, calculated as the market's single-sided open-interest quantity multiplied by its mark price.",
                         "example": "210600.00"
                       }
                     }
@@ -17145,16 +18568,15 @@
       },
       "OrderStatus": {
         "type": "string",
-        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+        "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
         "enum": [
           "OPEN",
           "PARTIALLY_FILLED",
           "FILLED",
           "CANCELED",
-          "REJECTED",
-          "EXPIRED"
+          "SYSTEM_CANCELED"
         ],
-        "example": "FILLED"
+        "example": "SYSTEM_CANCELED"
       },
       "MarketType": {
         "type": "string",
@@ -17240,12 +18662,76 @@
             "example": "2034.99"
           },
           "time": {
-            "description": "Snapshot timestamp in milliseconds.",
+            "description": "Time in milliseconds for the market data used to calculate these prices.",
             "type": "integer",
             "format": "int64",
             "minimum": 1000000000000,
             "maximum": 4102444800000,
             "example": 1678886400000
+          }
+        }
+      },
+      "AssetPrice": {
+        "type": "object",
+        "description": "The current USDC-denominated index price of a single asset.\n",
+        "required": [
+          "asset",
+          "indexPrice",
+          "time"
+        ],
+        "properties": {
+          "asset": {
+            "type": "string",
+            "description": "The asset symbol.",
+            "example": "ETH"
+          },
+          "indexPrice": {
+            "type": "string",
+            "format": "decimal",
+            "description": "The current index price of the asset denominated in USDC. The quote asset USDC itself is included with a price of 1.\n",
+            "example": "2035.16"
+          },
+          "time": {
+            "description": "Time in milliseconds when this price was recorded.\n",
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000000000000,
+            "maximum": 4102444800000,
+            "example": 1678886400000
+          }
+        }
+      },
+      "AssetPriceList": {
+        "type": "array",
+        "description": "Index price snapshots for every listed asset: the union of perpetual base and quote assets, spot assets, and lending assets.\n",
+        "items": {
+          "type": "object",
+          "description": "The current USDC-denominated index price of a single asset.\n",
+          "required": [
+            "asset",
+            "indexPrice",
+            "time"
+          ],
+          "properties": {
+            "asset": {
+              "type": "string",
+              "description": "The asset symbol.",
+              "example": "ETH"
+            },
+            "indexPrice": {
+              "type": "string",
+              "format": "decimal",
+              "description": "The current index price of the asset denominated in USDC. The quote asset USDC itself is included with a price of 1.\n",
+              "example": "2035.16"
+            },
+            "time": {
+              "description": "Time in milliseconds when this price was recorded.\n",
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "example": 1678886400000
+            }
           }
         }
       },
@@ -17437,10 +18923,16 @@
         "required": [
           "id",
           "asset",
+          "time",
+          "from",
+          "to",
           "balance",
           "balanceChange",
           "changeType",
-          "time"
+          "txHash",
+          "txHashType",
+          "blockNumber",
+          "crossChain"
         ],
         "properties": {
           "id": {
@@ -17591,32 +19083,26 @@
             "example": "0x7cf219b32b35000e20677b2c149c92b785bd8417c3c0834376a8a1df31734d6a"
           },
           "txHashType": {
-            "type": "string",
-            "description": "The format of txHash.",
             "oneOf": [
               {
                 "type": "null"
               },
               {
+                "type": "string",
                 "enum": [
                   "EVM",
                   "Extrinsic"
                 ]
               }
             ],
+            "description": "The format of txHash.",
             "example": "EVM"
           },
-          "height": {
+          "blockNumber": {
             "type": "integer",
             "format": "int64",
-            "description": "Block number.",
+            "description": "Block number at which the event occurred.",
             "example": 28565243
-          },
-          "eventIndex": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Position of this event within the transaction.",
-            "example": 7
           },
           "crossChain": {
             "oneOf": [
@@ -18055,7 +19541,7 @@
             "description": "Included only when requested with `include=transferLimits`. Limits for different assets share the same account margin capacity and are not additive.\n"
           },
           "time": {
-            "description": "Snapshot timestamp in milliseconds.",
+            "description": "Timestamp of the account data used in this response, in milliseconds.",
             "type": "integer",
             "format": "int64",
             "minimum": 1000000000000,
@@ -18089,7 +19575,7 @@
           "canceledOrders",
           "bankrupt",
           "txHash",
-          "height"
+          "blockNumber"
         ],
         "x-on-chain": {
           "struct": "LiquidationRecord",
@@ -18108,7 +19594,7 @@
             "id": "(indexer) global cursor",
             "time": "(indexer) block timestamp",
             "txHash": "(indexer) extrinsic hash",
-            "height": "(indexer) block number"
+            "blockNumber": "(indexer) block number"
           }
         },
         "properties": {
@@ -18417,7 +19903,7 @@
             "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
             "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
           },
-          "height": {
+          "blockNumber": {
             "type": "integer",
             "format": "int64",
             "minimum": 0,
@@ -18733,6 +20219,158 @@
             "format": "int64",
             "minimum": 0,
             "description": "Portion of `unclaimed` awaiting grant confirmation."
+          }
+        }
+      },
+      "BadDebt": {
+        "type": "object",
+        "description": "A remaining insurance-fund recovery claim against a subaccount in one asset. Eligible wallet deposits automatically repay matching recovery claims after existing borrowing is repaid. An outstanding claim restricts some account operations until repaid.\n",
+        "x-on-chain": {
+          "struct": "BadDebtReceivable",
+          "registry": "pallets/lending/src/types.rs",
+          "event": "pallet_lending::Event::BadDebtReceivableCreated / BadDebtReceivableRepaid",
+          "mappings": {
+            "asset": "asset",
+            "amount": "(indexer) created minus repaid, aggregated per asset across lending markets"
+          }
+        },
+        "required": [
+          "asset",
+          "amount"
+        ],
+        "properties": {
+          "asset": {
+            "type": "string",
+            "description": "The asset ticker symbol of the outstanding claim.",
+            "example": "USDC"
+          },
+          "amount": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Remaining amount still owed. Decreases as the portion of an eligible wallet deposit remaining after repayment of existing borrowing is applied to matching recovery claims. Zero-amount claims are removed.\n",
+            "example": "1200.00"
+          }
+        }
+      },
+      "BadDebtList": {
+        "type": "array",
+        "description": "The outstanding insurance-fund recovery claims of a subaccount, one entry per asset.",
+        "items": {
+          "type": "object",
+          "description": "A remaining insurance-fund recovery claim against a subaccount in one asset. Eligible wallet deposits automatically repay matching recovery claims after existing borrowing is repaid. An outstanding claim restricts some account operations until repaid.\n",
+          "x-on-chain": {
+            "struct": "BadDebtReceivable",
+            "registry": "pallets/lending/src/types.rs",
+            "event": "pallet_lending::Event::BadDebtReceivableCreated / BadDebtReceivableRepaid",
+            "mappings": {
+              "asset": "asset",
+              "amount": "(indexer) created minus repaid, aggregated per asset across lending markets"
+            }
+          },
+          "required": [
+            "asset",
+            "amount"
+          ],
+          "properties": {
+            "asset": {
+              "type": "string",
+              "description": "The asset ticker symbol of the outstanding claim.",
+              "example": "USDC"
+            },
+            "amount": {
+              "type": "string",
+              "format": "decimal",
+              "description": "Remaining amount still owed. Decreases as the portion of an eligible wallet deposit remaining after repayment of existing borrowing is applied to matching recovery claims. Zero-amount claims are removed.\n",
+              "example": "1200.00"
+            }
+          }
+        }
+      },
+      "ProtocolStats": {
+        "type": "object",
+        "description": "Protocol-wide aggregate statistics in USDC.\n",
+        "x-on-chain": {
+          "mappings": {
+            "spotVolume24h": "(indexer) matched spot trade quote values in the trailing 24-hour window, converted to USDC",
+            "perpVolume24h": "(indexer) matched perpetual trade quote values in the trailing 24-hour window, converted to USDC",
+            "openInterestValue": "(indexer) single-sided open interest by market valued at mark price",
+            "lendingTotalSuppliedValue": "(indexer) reported lending-market supplied totals valued at index price",
+            "lendingTotalBorrowedValue": "(indexer) reported lending-market borrowed totals valued at index price",
+            "totalValueLocked": "(indexer) underlying user assets held in protocol custody, counted once and valued at index price",
+            "totalWallets": "(indexer) distinct primary owner addresses that have created a subaccount since genesis",
+            "activeTradingWallets24h": "(indexer) distinct primary owner addresses with a qualifying spot or perpetual fill in the trailing 24-hour window",
+            "time": "(indexer) common complete-data cutoff timestamp for this snapshot"
+          }
+        },
+        "required": [
+          "time",
+          "spotVolume24h",
+          "perpVolume24h",
+          "openInterestValue",
+          "lendingTotalSuppliedValue",
+          "lendingTotalBorrowedValue",
+          "totalValueLocked",
+          "totalWallets",
+          "activeTradingWallets24h"
+        ],
+        "properties": {
+          "time": {
+            "description": "Time through which the statistics include data (Unix timestamp in milliseconds).",
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000000000000,
+            "maximum": 4102444800000,
+            "example": 1678886400000
+          },
+          "spotVolume24h": {
+            "type": "string",
+            "format": "decimal",
+            "description": "USDC value of matched spot trades with execution times in the interval (`time` minus 24 hours, `time`]. Each matched fill is counted once.\n",
+            "example": "18234500.00"
+          },
+          "perpVolume24h": {
+            "type": "string",
+            "format": "decimal",
+            "description": "USDC value of matched perpetual trades with execution times in the interval (`time` minus 24 hours, `time`]. Each matched fill is counted once.\n",
+            "example": "54234500.00"
+          },
+          "openInterestValue": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Sum across perpetual markets of each market's single-sided open-interest quantity multiplied by its mark price at `time`. The quantity is counted once.\n",
+            "example": "21068450.00"
+          },
+          "lendingTotalSuppliedValue": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Total supplied across all lending pools, valued in USDC at current index prices.",
+            "example": "7400000.00"
+          },
+          "lendingTotalBorrowedValue": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Total borrowed across all lending pools, valued in USDC at current index prices.",
+            "example": "3600000.00"
+          },
+          "totalValueLocked": {
+            "type": "string",
+            "format": "decimal",
+            "description": "USDC value of underlying user assets actually held in protocol.",
+            "example": "152300000.00"
+          },
+          "totalWallets": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Number of distinct primary owner addresses that have created at least one subaccount since genesis. Each address is counted once, including after all of its subaccounts have been deleted.\n",
+            "example": 184205
+          },
+          "activeTradingWallets24h": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Number of distinct primary owner addresses with at least one spot or perpetual matched fill in the trailing 24-hour window. An owner is counted once across products and subaccounts; a trade submitted by a delegate is attributed to the primary owner of the traded subaccount.\n",
+            "example": 8412
           }
         }
       },
@@ -19101,6 +20739,25 @@
         "description": "The 32-byte creation transaction hash of an order, represented as either a native extrinsic hash or an EVM transaction hash.",
         "example": "0x9b7ddd4fd0f97940005418084c0ed83f82605294bc16d2be34f9c8e2c03837e1"
       },
+      "CancelReason": {
+        "type": "string",
+        "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+        "enum": [
+          "INSUFFICIENT_MARGIN",
+          "TRIGGERED_CANCEL",
+          "NO_COUNTERPARTY",
+          "IOC_UNFILLED",
+          "SLIPPAGE_TOO_HIGH",
+          "PRICE_DEVIATION_TOO_HIGH",
+          "MARKET_CLOSED",
+          "SYSTEM_MAINTENANCE",
+          "SETTLEMENT_FAILED",
+          "ACCOUNT_FROZEN",
+          "INSUFFICIENT_BALANCE",
+          "UNKNOWN"
+        ],
+        "example": "INSUFFICIENT_MARGIN"
+      },
       "PerpOrder": {
         "type": "object",
         "description": "A perpetual order record.",
@@ -19125,7 +20782,9 @@
           "fee",
           "feeAsset",
           "blockNumber",
-          "txHash"
+          "txHash",
+          "cancelReason",
+          "cancelBlockNumber"
         ],
         "properties": {
           "orderId": {
@@ -19169,16 +20828,15 @@
           },
           "status": {
             "type": "string",
-            "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+            "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
             "enum": [
               "OPEN",
               "PARTIALLY_FILLED",
               "FILLED",
               "CANCELED",
-              "REJECTED",
-              "EXPIRED"
+              "SYSTEM_CANCELED"
             ],
-            "example": "FILLED"
+            "example": "SYSTEM_CANCELED"
           },
           "time": {
             "description": "Order creation timestamp in milliseconds.",
@@ -19295,9 +20953,31 @@
             "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
           },
           "cancelReason": {
-            "type": "string",
-            "description": "Reason why the order was canceled, if applicable.",
-            "example": "None"
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                "enum": [
+                  "INSUFFICIENT_MARGIN",
+                  "TRIGGERED_CANCEL",
+                  "NO_COUNTERPARTY",
+                  "IOC_UNFILLED",
+                  "SLIPPAGE_TOO_HIGH",
+                  "PRICE_DEVIATION_TOO_HIGH",
+                  "MARKET_CLOSED",
+                  "SYSTEM_MAINTENANCE",
+                  "SETTLEMENT_FAILED",
+                  "ACCOUNT_FROZEN",
+                  "INSUFFICIENT_BALANCE",
+                  "UNKNOWN"
+                ],
+                "example": "INSUFFICIENT_MARGIN"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
           },
           "cancelBlockNumber": {
             "type": [
@@ -19305,7 +20985,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "Block number at which the order was canceled, if applicable.",
+            "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
             "example": 8996500
           }
         }
@@ -19496,7 +21176,9 @@
           "reduceOnly",
           "frozen",
           "blockNumber",
-          "txHash"
+          "txHash",
+          "cancelReason",
+          "cancelBlockNumber"
         ],
         "properties": {
           "orderId": {
@@ -19556,16 +21238,15 @@
           },
           "status": {
             "type": "string",
-            "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by user or protocol. |\n| `REJECTED` | Reverted or failed on-chain. |\n| `EXPIRED` | The order was canceled according to the order type's rules or by the exchange. |\n",
+            "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
             "enum": [
               "OPEN",
               "PARTIALLY_FILLED",
               "FILLED",
               "CANCELED",
-              "REJECTED",
-              "EXPIRED"
+              "SYSTEM_CANCELED"
             ],
-            "example": "FILLED"
+            "example": "SYSTEM_CANCELED"
           },
           "price": {
             "type": [
@@ -19645,6 +21326,42 @@
               }
             ],
             "description": "Creation transaction hash, which may be a native extrinsic or EVM transaction hash. `null` for historical records without a recoverable hash."
+          },
+          "cancelReason": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "Why the protocol canceled an order. Non-null exactly when `status` is `SYSTEM_CANCELED`; `null` otherwise.\n\n| Value | Description |\n|---|---|\n| `INSUFFICIENT_MARGIN` | The account's margin fell below requirements, including orders removed during liquidation. |\n| `TRIGGERED_CANCEL` | A take-profit, stop-loss, or reduce-only rule removed the order. |\n| `NO_COUNTERPARTY` | A market order found no available counterparty. |\n| `IOC_UNFILLED` | An immediate-or-cancel order left an unfilled remainder. |\n| `SLIPPAGE_TOO_HIGH` | A market order reached its worst acceptable price before full execution. |\n| `PRICE_DEVIATION_TOO_HIGH` | The order price deviated too far from the reference price. |\n| `MARKET_CLOSED` | The market was not open for trading. |\n| `SYSTEM_MAINTENANCE` | The protocol suspended or settled the market, for example on delisting. |\n| `SETTLEMENT_FAILED` | A matched fill failed to settle on-chain, and the order was canceled instead. |\n| `ACCOUNT_FROZEN` | The account was frozen. |\n| `INSUFFICIENT_BALANCE` | The available spot balance no longer covered the resting order. |\n| `UNKNOWN` | The reason is not available. |\n",
+                "enum": [
+                  "INSUFFICIENT_MARGIN",
+                  "TRIGGERED_CANCEL",
+                  "NO_COUNTERPARTY",
+                  "IOC_UNFILLED",
+                  "SLIPPAGE_TOO_HIGH",
+                  "PRICE_DEVIATION_TOO_HIGH",
+                  "MARKET_CLOSED",
+                  "SYSTEM_MAINTENANCE",
+                  "SETTLEMENT_FAILED",
+                  "ACCOUNT_FROZEN",
+                  "INSUFFICIENT_BALANCE",
+                  "UNKNOWN"
+                ],
+                "example": "INSUFFICIENT_MARGIN"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the protocol canceled the order. Non-null exactly when `status` is `SYSTEM_CANCELED`."
+          },
+          "cancelBlockNumber": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Block number at which the order was canceled. `null` until the order is canceled, by the user or the protocol.",
+            "example": 8689320
           }
         }
       },
@@ -19979,7 +21696,7 @@
           "insuranceFund",
           "payments",
           "txHash",
-          "height"
+          "blockNumber"
         ],
         "x-on-chain": {
           "struct": "ResolveBankruptRecord",
@@ -19992,7 +21709,7 @@
             "insuranceFund": "if_address",
             "payments": "detail",
             "txHash": "(indexer) extrinsic hash",
-            "height": "(indexer) block number"
+            "blockNumber": "(indexer) block number"
           }
         },
         "properties": {
@@ -20060,7 +21777,7 @@
             "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
             "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
           },
-          "height": {
+          "blockNumber": {
             "type": "integer",
             "format": "int64",
             "minimum": 0,
@@ -20919,7 +22636,7 @@
           "openInterestValue": {
             "type": "string",
             "format": "decimal",
-            "description": "Open interest value in USD.",
+            "description": "Open interest value in USDC, calculated as the market's single-sided open-interest quantity multiplied by its mark price.",
             "example": "210600.00"
           }
         }
@@ -20964,7 +22681,7 @@
             "openInterestValue": {
               "type": "string",
               "format": "decimal",
-              "description": "Open interest value in USD.",
+              "description": "Open interest value in USDC, calculated as the market's single-sided open-interest quantity multiplied by its mark price.",
               "example": "210600.00"
             }
           }
@@ -21690,6 +23407,33 @@
           "example": 1678886400000
         }
       },
+      "OrderStatusFilter": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "Filter by order status: a comma-separated list of OrderStatus values. A record matches when its status equals any listed value; for example, `status=CANCELED,SYSTEM_CANCELED` returns orders canceled both by the user and by the protocol. Omit to return all statuses.\n",
+        "example": [
+          "CANCELED",
+          "SYSTEM_CANCELED"
+        ],
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "The current status of an order.\n\n| Value | Description |\n|---|---|\n| `OPEN` | Active on the orderbook. |\n| `PARTIALLY_FILLED` | Partially executed; remainder still active. |\n| `FILLED` | Fully executed. |\n| `CANCELED` | Canceled by the user, including batch and cancel-all requests. |\n| `SYSTEM_CANCELED` | Canceled by the protocol. `cancelReason` explains why. |\n",
+            "enum": [
+              "OPEN",
+              "PARTIALLY_FILLED",
+              "FILLED",
+              "CANCELED",
+              "SYSTEM_CANCELED"
+            ],
+            "example": "SYSTEM_CANCELED"
+          }
+        },
+        "style": "form",
+        "explode": false
+      },
       "SpotSymbolFilter": {
         "name": "symbol",
         "in": "query",
@@ -21705,6 +23449,16 @@
             "SOL-USDC"
           ],
           "example": "BTC-USDC"
+        }
+      },
+      "AssetFilter": {
+        "name": "asset",
+        "in": "query",
+        "required": false,
+        "description": "Filter by asset symbol. If omitted, prices are returned for all assets.",
+        "example": "ETH",
+        "schema": {
+          "type": "string"
         }
       },
       "SpotSymbol": {

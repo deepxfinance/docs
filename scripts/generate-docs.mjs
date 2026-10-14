@@ -30,7 +30,7 @@ async function main() {
   assertDirectory(contractsRoot);
   assertFile(sourceOpenApiPath);
   assertDirectory(sourceSchemasDir);
-  await assertContractVersions(contractsRoot, docsRoot);
+  const releaseMetadata = await assertContractVersions(contractsRoot, docsRoot);
 
   const tempDir = await mkdtemp(path.join(tmpdir(), 'deepx-docs-openapi-'));
   const tempSpecPath = path.join(tempDir, 'sdk-api.json');
@@ -39,6 +39,7 @@ async function main() {
     await runRedoclyBundle(tempSpecPath);
 
     const document = JSON.parse(await readFile(tempSpecPath, 'utf8'));
+    filterServersForNetwork(document, releaseMetadata.network);
     normalizeSchemaRefs(document);
 
     await writeFile(outputSpecPath, `${JSON.stringify(document, null, 2)}\n`);
@@ -75,6 +76,22 @@ async function main() {
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+}
+
+function filterServersForNetwork(document, network) {
+  const expectedDescription =
+    network === 'devnet' ? 'Devnet Server' : 'Testnet Server';
+  const matchingServers = (document.servers ?? []).filter(
+    (server) => server.description === expectedDescription,
+  );
+
+  if (matchingServers.length !== 1) {
+    throw new Error(
+      `Expected exactly one ${expectedDescription} in OpenAPI servers, found ${matchingServers.length}`,
+    );
+  }
+
+  document.servers = matchingServers;
 }
 
 function normalizeSchemaRefs(document) {

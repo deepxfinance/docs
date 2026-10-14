@@ -84,12 +84,31 @@ export async function syncContractDocs({ docsRoot = defaultDocsRoot, contractsRo
     const renderedBody =
       page.source === 'v1/overview.md'
         ? renderPublishedOverview(body, releaseMetadata)
+        : page.source === 'v1/websocket/01-general-info.md'
+          ? renderNetworkSpecificWebSocketInfo(body, releaseMetadata.network)
         : body;
     const frontmatter = `---\ntitle: ${title ?? page.title}\ndescription: ${page.description}\n---\n\n`;
     await writeFile(outputPath, `${frontmatter}${rewriteSchemaLinks(renderedBody)}`, 'utf8');
   }
 
   await ensureRestGuideNavigation(docsRoot);
+}
+
+function renderNetworkSpecificWebSocketInfo(body, network) {
+  const selectedLabel = network === 'devnet' ? 'Devnet' : 'Testnet';
+  const endpointRow = /^\| \*\*(Devnet|Testnet) Base Endpoint\*\* \| `([^`]+)` \|\r?\n?/gm;
+  const rows = [...body.matchAll(endpointRow)];
+  const selectedRows = rows.filter((match) => match[1] === selectedLabel);
+
+  if (rows.length !== 2 || selectedRows.length !== 1) {
+    throw new Error(
+      `WebSocket General Information must define one Devnet and one Testnet base endpoint; found ${rows.length} endpoint rows`,
+    );
+  }
+
+  return body.replace(endpointRow, (row, label) =>
+    label === selectedLabel ? row.replace(`${label} Base Endpoint`, 'Base Endpoint') : '',
+  );
 }
 
 async function ensureRestGuideNavigation(docsRoot) {

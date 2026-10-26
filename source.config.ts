@@ -1,5 +1,6 @@
 import rehypeKatex from 'rehype-katex';
 import remarkMath from 'remark-math';
+import remarkParameterTables from './lib/remark-parameter-tables.mjs';
 import {
   defineConfig,
   defineDocs,
@@ -24,7 +25,7 @@ export const docs = defineDocs({
 export default defineConfig({
   mdxOptions: {
     // MDX options
-    remarkPlugins: [remarkMath],
+    remarkPlugins: (plugins) => [remarkParameterTables, remarkMath, ...plugins],
     // Place it at first, it should be executed before the syntax highlighter
     rehypePlugins: (v) => [rehypeKatex, ...v],
   },

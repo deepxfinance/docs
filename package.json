@@ -7,13 +7,12 @@
     "dev": "next dev --turbo",
     "generate:docs": "node scripts/generate-docs.mjs",
     "sync:contract-docs": "node scripts/sync-contract-docs.mjs",
+    "test:parameters": "node --test scripts/parameter-tables.test.mjs",
     "start": "next start",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
     "@fumadocs/api-docs": "0.0.2",
-    "@ai-sdk/openai-compatible": "^1.0.27",
-    "@ai-sdk/react": "^2.0.97",
     "fumadocs-core": "^16.10.0",
     "fumadocs-mdx": "13.0.4",
     "fumadocs-openapi": "^11.0.3",

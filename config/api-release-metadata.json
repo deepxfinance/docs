@@ -1,7 +1,7 @@
 {
   "network": "devnet",
   "currentApiVersion": "1.7.0",
-  "contractsRef": "2c481a0ab43cbb855e23c86a927f177fd21eddb7",
+  "contractsRef": "7b24e86910074aecb6bc225670b134aaf0e2f983",
   "releaseDates": {
     "1.0.0": "2026-03-24",
     "1.1.0": "2026-06-13",

@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "https://api-devnet.deepx.fi/v1",
+      "url": "https://api-devnet.deepx.fi",
       "description": "Devnet Server"
     }
   ],

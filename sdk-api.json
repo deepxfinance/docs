@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "https://api-testnet.deepx.fi/v1",
+      "url": "https://api-testnet.deepx.fi",
       "description": "Testnet Server"
     }
   ],

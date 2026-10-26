@@ -12,8 +12,6 @@
   },
   "dependencies": {
     "@fumadocs/api-docs": "0.0.2",
-    "@ai-sdk/openai-compatible": "^1.0.27",
-    "@ai-sdk/react": "^2.0.97",
     "fumadocs-core": "^16.10.0",
     "fumadocs-mdx": "13.0.4",
     "fumadocs-openapi": "^11.0.3",

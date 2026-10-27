@@ -1,0 +1,8 @@
+{
+  "title": "Insurance Fund",
+  "description": "Protocol insurance fund balance, reservations, and history.",
+  "pages": [
+    "getInsuranceFund",
+    "getInsuranceFundHistory"
+  ]
+}

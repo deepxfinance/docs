@@ -3,9 +3,16 @@ title: API Overview
 description: Current public API version and changelog.
 ---
 
-**Current API Version:** `1.7.0`
+**Current API Version:** `1.7.1`
 
 ## Changelog
+
+### v1.7.1 (2026-10-27)
+
+- Clarified optional `symbol` filtering for account position, order, and trade WebSocket streams, including initial snapshots and subsequent updates.
+- Added `GET /v1/perp/markets/{symbol}/liquidations` and the `perp@liquidations` WebSocket stream for market-wide liquidation records across all subaccounts.
+- Added `GET /v1/insurance-fund` and `GET /v1/insurance-fund/history` for current and historical insurance fund snapshots.
+- Added `GET /v1/perp/markets/{symbol}/adl-queue` for ADL ranking snapshots with priority scores.
 
 ### v1.7.0 (2026-10-14)
 

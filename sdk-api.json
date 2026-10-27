@@ -2,8 +2,8 @@
   "openapi": "3.2.0",
   "info": {
     "title": "DeepX API",
-    "version": "1.7.0",
-    "description": "# REST API Guide\n\n## General API Information\n\n- **Time Format**: All timestamps are in milliseconds (ms) by default.\n- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:\n  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.\n  * With `startTime`, returns oldest items from `startTime` up to the `limit`.\n  * With `endTime`, returns most recent items up to `endTime` and the `limit`.\n  * With both, behaves like `startTime` but does not exceed `endTime`.\n- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:\n  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.\n  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, and lending-market history use this pattern.\n  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.\n",
+    "version": "1.7.1",
+    "description": "# REST API Guide\n\n## General API Information\n\n- **Time Format**: All timestamps are in milliseconds (ms) by default.\n- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:\n  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.\n  * With `startTime`, returns oldest items from `startTime` up to the `limit`.\n  * With `endTime`, returns most recent items up to `endTime` and the `limit`.\n  * With both, behaves like `startTime` but does not exceed `endTime`.\n- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:\n  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.\n  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, lending-market history, and insurance-fund history use this pattern.\n  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.\n",
     "license": {
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
@@ -39,6 +39,10 @@
     {
       "name": "Lending Markets",
       "description": "Lending and borrowing market parameters and real-time data."
+    },
+    {
+      "name": "Insurance Fund",
+      "description": "Protocol insurance fund balance, reservations, and history."
     },
     {
       "name": "Prices",
@@ -7939,7 +7943,7 @@
                                         "type": "integer",
                                         "format": "int32",
                                         "minimum": 0,
-                                        "description": "Perpetual market ID.",
+                                        "description": "Perpetual market ID. When an account-wide record contains only cancellations, all detail fields are zero. In that case, this field does not identify a market.\n",
                                         "example": 1
                                       },
                                       "settlementPrice": {
@@ -8059,17 +8063,17 @@
                               "marginShortage": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Margin requirement shortfall in USDC for this operation.",
+                                "description": "The subaccount's margin requirement shortfall for this operation, in USDC.",
                                 "example": "123.456"
                               },
                               "marginFreed": {
                                 "type": "string",
                                 "format": "decimal",
-                                "description": "Margin freed by this operation, in USDC.",
+                                "description": "Margin freed for the subaccount by this operation, in USDC.",
                                 "example": "654.321"
                               },
                               "canceledOrders": {
-                                "description": "Orders canceled due to this liquidation.",
+                                "description": "All orders canceled for the subaccount by this operation. Can include spot orders and orders from other perpetual markets.",
                                 "type": "object",
                                 "required": [
                                   "spot",
@@ -12669,7 +12673,7 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "description": "A perpetual contract market's trading rules.",
+                    "description": "Trading rules, fees, and risk parameters for a perpetual market.",
                     "required": [
                       "symbol",
                       "marketId",
@@ -12694,10 +12698,6 @@
                       "fundingRateChangeFloor",
                       "clampUpperBound",
                       "clampLowerBound",
-                      "liqDurationBlocks",
-                      "bucketSlippageStep",
-                      "bucketSlippageLimit",
-                      "liquidityDustValue",
                       "liquidationFeeRates"
                     ],
                     "properties": {
@@ -12714,7 +12714,7 @@
                       "marketId": {
                         "type": "integer",
                         "format": "int32",
-                        "description": "The internal validator market ID.",
+                        "description": "The numeric ID of the market on the chain.",
                         "example": 3
                       },
                       "type": {
@@ -12749,17 +12749,18 @@
                       "makerFeeRate": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Maker fee rate as a decimal.",
+                        "description": "The maker fee rate as a decimal ratio. A negative rate gives the maker a rebate. For example, \"-0.0001\" means a 0.01% rebate.",
                         "example": "-0.0001"
                       },
                       "takerFeeRate": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Taker fee rate as a decimal.",
+                        "description": "The taker fee rate as a decimal ratio. For example, \"0.0001\" means a 0.01% fee.",
                         "example": "0.0001"
                       },
                       "orderTypes": {
                         "type": "array",
+                        "description": "The order types that this market accepts.",
                         "items": {
                           "type": "string",
                           "description": "Basic order type.",
@@ -12777,110 +12778,86 @@
                       "tickSize": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The minimum price increment.",
+                        "description": "The price increment for orders. Each order price must be a multiple of this value.",
                         "example": "0.01"
                       },
                       "minQty": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The minimum allowed order quantity in base asset.",
+                        "description": "The minimum order quantity, in units of the base asset.",
                         "example": "0.001"
                       },
                       "stepSize": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The minimum base asset quantity increment for orders.",
+                        "description": "The quantity increment for orders, in units of the base asset. Each order quantity must be a multiple of this value.",
                         "example": "0.001"
                       },
                       "minNotional": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "The minimum order value in quote asset.",
+                        "description": "The minimum order value, in units of the quote asset.",
                         "example": "5.0"
                       },
                       "maxOpenOrders": {
                         "type": "integer",
                         "format": "int32",
-                        "description": "Maximum number of open orders an account can have.",
+                        "description": "The maximum number of open orders per subaccount in this market.",
                         "example": 128
                       },
                       "initMarginRatio": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Initial margin requirement decimal.",
+                        "description": "The initial margin requirement as a fraction of the position value. For example, \"0.04\" means 4%.",
                         "example": "0.04"
                       },
                       "maintMarginRatio": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Maintenance margin requirement decimal.",
+                        "description": "The maintenance margin requirement as a fraction of the position value. For example, \"0.02\" means 2%.",
                         "example": "0.02"
                       },
                       "maxDeviationRatio": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Maximum allowed price deviation from the current price.",
+                        "description": "The maximum execution price deviation from the mark price, as a decimal ratio. For example, \"0.50\" means 50%.",
                         "example": "0.50"
                       },
                       "baseInterestRate": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Base interest rate for an eight-hour period, expressed as a decimal.",
+                        "description": "The base interest rate per eight hours, as a decimal ratio. The funding formula uses this rate.",
                         "example": "0.0001"
                       },
                       "impactMarginValue": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Margin value used to calculate the impact of a trade on the orderbook.",
+                        "description": "The margin amount for the reference trade that determines impact bid and ask prices, in units of the quote asset. The funding formula uses these prices.",
                         "example": "100"
                       },
                       "fundingRateChangeCap": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Maximum funding rate per hour, expressed as a decimal. Applied after dividing the eight-hour funding formula result by eight; caps the resulting rate, not its change from the previous rate.",
+                        "description": "The maximum hourly funding rate, as a decimal ratio. This limit applies after the eight-hour formula result is divided by eight. It limits the rate itself, not the change from the previous rate.",
                         "example": "0.002"
                       },
                       "fundingRateChangeFloor": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Minimum funding rate per hour, expressed as a signed decimal. Applied after dividing the eight-hour funding formula result by eight; floors the resulting rate, not its change from the previous rate.",
+                        "description": "The minimum hourly funding rate, as a signed decimal ratio. This limit applies after the eight-hour formula result is divided by eight. It limits the rate itself, not the change from the previous rate.",
                         "example": "-0.002"
                       },
                       "clampUpperBound": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Upper bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
+                        "description": "The upper limit for the interest correction in the funding formula, as a decimal ratio. The eight-hour formula is P + clamp(I - P, clampLowerBound, clampUpperBound). I is baseInterestRate. P is the average premium index. The hourly rate equals the formula result divided by eight, subject to fundingRateChangeFloor and fundingRateChangeCap.",
                         "example": "0.0005"
                       },
                       "clampLowerBound": {
                         "type": "string",
                         "format": "decimal",
-                        "description": "Lower bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
+                        "description": "The lower limit for the interest correction in the funding formula, as a decimal ratio. The formula and hourly rate limits are described in clampUpperBound.",
                         "example": "-0.0005"
-                      },
-                      "liqDurationBlocks": {
-                        "type": "integer",
-                        "format": "int32",
-                        "description": "Configured liquidation duration in blocks.",
-                        "example": 100
-                      },
-                      "bucketSlippageStep": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Slippage step per liquidation bucket.",
-                        "example": "0.10"
-                      },
-                      "bucketSlippageLimit": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Maximum allowed slippage across all buckets.",
-                        "example": "1.00"
-                      },
-                      "liquidityDustValue": {
-                        "type": "string",
-                        "format": "decimal",
-                        "description": "Minimum value in quote asset considered as dust.",
-                        "example": "1.0"
                       },
                       "liquidationFeeRates": {
                         "type": "object",
@@ -13101,7 +13078,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "description": "A perpetual contract market's trading rules.",
+                  "description": "Trading rules, fees, and risk parameters for a perpetual market.",
                   "required": [
                     "symbol",
                     "marketId",
@@ -13126,10 +13103,6 @@
                     "fundingRateChangeFloor",
                     "clampUpperBound",
                     "clampLowerBound",
-                    "liqDurationBlocks",
-                    "bucketSlippageStep",
-                    "bucketSlippageLimit",
-                    "liquidityDustValue",
                     "liquidationFeeRates"
                   ],
                   "properties": {
@@ -13146,7 +13119,7 @@
                     "marketId": {
                       "type": "integer",
                       "format": "int32",
-                      "description": "The internal validator market ID.",
+                      "description": "The numeric ID of the market on the chain.",
                       "example": 3
                     },
                     "type": {
@@ -13181,17 +13154,18 @@
                     "makerFeeRate": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Maker fee rate as a decimal.",
+                      "description": "The maker fee rate as a decimal ratio. A negative rate gives the maker a rebate. For example, \"-0.0001\" means a 0.01% rebate.",
                       "example": "-0.0001"
                     },
                     "takerFeeRate": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Taker fee rate as a decimal.",
+                      "description": "The taker fee rate as a decimal ratio. For example, \"0.0001\" means a 0.01% fee.",
                       "example": "0.0001"
                     },
                     "orderTypes": {
                       "type": "array",
+                      "description": "The order types that this market accepts.",
                       "items": {
                         "type": "string",
                         "description": "Basic order type.",
@@ -13209,110 +13183,86 @@
                     "tickSize": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "The minimum price increment.",
+                      "description": "The price increment for orders. Each order price must be a multiple of this value.",
                       "example": "0.01"
                     },
                     "minQty": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "The minimum allowed order quantity in base asset.",
+                      "description": "The minimum order quantity, in units of the base asset.",
                       "example": "0.001"
                     },
                     "stepSize": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "The minimum base asset quantity increment for orders.",
+                      "description": "The quantity increment for orders, in units of the base asset. Each order quantity must be a multiple of this value.",
                       "example": "0.001"
                     },
                     "minNotional": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "The minimum order value in quote asset.",
+                      "description": "The minimum order value, in units of the quote asset.",
                       "example": "5.0"
                     },
                     "maxOpenOrders": {
                       "type": "integer",
                       "format": "int32",
-                      "description": "Maximum number of open orders an account can have.",
+                      "description": "The maximum number of open orders per subaccount in this market.",
                       "example": 128
                     },
                     "initMarginRatio": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Initial margin requirement decimal.",
+                      "description": "The initial margin requirement as a fraction of the position value. For example, \"0.04\" means 4%.",
                       "example": "0.04"
                     },
                     "maintMarginRatio": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Maintenance margin requirement decimal.",
+                      "description": "The maintenance margin requirement as a fraction of the position value. For example, \"0.02\" means 2%.",
                       "example": "0.02"
                     },
                     "maxDeviationRatio": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Maximum allowed price deviation from the current price.",
+                      "description": "The maximum execution price deviation from the mark price, as a decimal ratio. For example, \"0.50\" means 50%.",
                       "example": "0.50"
                     },
                     "baseInterestRate": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Base interest rate for an eight-hour period, expressed as a decimal.",
+                      "description": "The base interest rate per eight hours, as a decimal ratio. The funding formula uses this rate.",
                       "example": "0.0001"
                     },
                     "impactMarginValue": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Margin value used to calculate the impact of a trade on the orderbook.",
+                      "description": "The margin amount for the reference trade that determines impact bid and ask prices, in units of the quote asset. The funding formula uses these prices.",
                       "example": "100"
                     },
                     "fundingRateChangeCap": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Maximum funding rate per hour, expressed as a decimal. Applied after dividing the eight-hour funding formula result by eight; caps the resulting rate, not its change from the previous rate.",
+                      "description": "The maximum hourly funding rate, as a decimal ratio. This limit applies after the eight-hour formula result is divided by eight. It limits the rate itself, not the change from the previous rate.",
                       "example": "0.002"
                     },
                     "fundingRateChangeFloor": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Minimum funding rate per hour, expressed as a signed decimal. Applied after dividing the eight-hour funding formula result by eight; floors the resulting rate, not its change from the previous rate.",
+                      "description": "The minimum hourly funding rate, as a signed decimal ratio. This limit applies after the eight-hour formula result is divided by eight. It limits the rate itself, not the change from the previous rate.",
                       "example": "-0.002"
                     },
                     "clampUpperBound": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Upper bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
+                      "description": "The upper limit for the interest correction in the funding formula, as a decimal ratio. The eight-hour formula is P + clamp(I - P, clampLowerBound, clampUpperBound). I is baseInterestRate. P is the average premium index. The hourly rate equals the formula result divided by eight, subject to fundingRateChangeFloor and fundingRateChangeCap.",
                       "example": "0.0005"
                     },
                     "clampLowerBound": {
                       "type": "string",
                       "format": "decimal",
-                      "description": "Lower bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
+                      "description": "The lower limit for the interest correction in the funding formula, as a decimal ratio. The formula and hourly rate limits are described in clampUpperBound.",
                       "example": "-0.0005"
-                    },
-                    "liqDurationBlocks": {
-                      "type": "integer",
-                      "format": "int32",
-                      "description": "Configured liquidation duration in blocks.",
-                      "example": 100
-                    },
-                    "bucketSlippageStep": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Slippage step per liquidation bucket.",
-                      "example": "0.10"
-                    },
-                    "bucketSlippageLimit": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Maximum allowed slippage across all buckets.",
-                      "example": "1.00"
-                    },
-                    "liquidityDustValue": {
-                      "type": "string",
-                      "format": "decimal",
-                      "description": "Minimum value in quote asset considered as dust.",
-                      "example": "1.0"
                     },
                     "liquidationFeeRates": {
                       "type": "object",
@@ -16781,6 +16731,1069 @@
         }
       }
     },
+    "/v1/perp/markets/{symbol}/liquidations": {
+      "get": {
+        "tags": [
+          "Perp Markets"
+        ],
+        "summary": "Get Market Liquidation Records",
+        "security": [],
+        "description": "Returns liquidation records for one perpetual market across all subaccounts, with cursor pagination. Each record has `liqType: LIQUIDATE_PERP`, and `detail.marketId` identifies the requested market.\nIncludes orderbook execution, incentivized takeovers, ADL fills, and records of cancellations only when they identify this market. Records with no market association remain available through `GET /v1/account/subaccounts/{address}/liquidations`.\n",
+        "operationId": "listPerpLiquidations",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "description": "The symbol of the perpetual market.",
+            "example": "BTC-USDC",
+            "schema": {
+              "type": "string",
+              "description": "A perpetual market symbol.",
+              "enum": [
+                "BTC-USDC",
+                "ETH-USDC",
+                "SOL-USDC"
+              ],
+              "example": "BTC-USDC"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of records to return.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor for pagination. Pass the `nextCursor` value from the previous response unchanged to fetch the next page of older records. Do not parse the cursor or rely on its internal structure.\n",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startTime",
+            "in": "query",
+            "required": false,
+            "description": "Filter records at or after this timestamp (milliseconds).",
+            "example": 1678800000000,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "description": "A Unix timestamp in milliseconds.",
+              "example": 1678886400000
+            }
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "required": false,
+            "description": "Filter records at or before this timestamp (milliseconds).",
+            "example": 1678886400000,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "description": "A Unix timestamp in milliseconds.",
+              "example": 1678886400000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of liquidation records for the market, sorted newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "nextCursor",
+                        "hasNext"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "description": "Array of paginated result records.",
+                          "example": []
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Opaque cursor for the next page of results. Pass this value as `cursor` in the next request to retrieve earlier records. Null when `hasNext` is false. Encoded as a base64 string whose internal structure should not be relied upon.\n",
+                          "example": "YWJjMTIz"
+                        },
+                        "hasNext": {
+                          "type": "boolean",
+                          "description": "Whether more records are available beyond this page.",
+                          "example": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "allOf": [
+                              {
+                                "type": "object",
+                                "description": "A subaccount liquidation record for orderbook execution, incentivized takeover, ADL, or order cancellations.\n",
+                                "required": [
+                                  "id",
+                                  "liqId",
+                                  "time",
+                                  "subaccount",
+                                  "liquidator",
+                                  "liqType",
+                                  "detail",
+                                  "marginShortage",
+                                  "marginFreed",
+                                  "canceledOrders",
+                                  "bankrupt",
+                                  "txHash",
+                                  "blockNumber"
+                                ],
+                                "x-on-chain": {
+                                  "struct": "LiquidationRecord",
+                                  "registry": "pallets/primitives/src/types.rs",
+                                  "event": "pallet_subaccount::Event::LiquidationRecord",
+                                  "mappings": {
+                                    "liqId": "liquidation_id",
+                                    "subaccount": "target_account",
+                                    "liquidator": "liquidator",
+                                    "liqType": "liquidation_type (discriminated union, see detail schemas)",
+                                    "marginShortage": "margin_shortage",
+                                    "marginFreed": "margin_freed",
+                                    "canceledOrders": "canceled_order_ids",
+                                    "bankrupt": "bankrupt",
+                                    "detail": "liquidation_type payload (one of LiquidatePerpDetail, LiquidateSpotDetail)",
+                                    "id": "(indexer) global cursor",
+                                    "time": "(indexer) block timestamp",
+                                    "txHash": "(indexer) extrinsic hash",
+                                    "blockNumber": "(indexer) block number"
+                                  }
+                                },
+                                "properties": {
+                                  "id": {
+                                    "description": "Unique record ID assigned by the indexer. Use as the cursor for pagination.",
+                                    "type": "string",
+                                    "example": "123456789"
+                                  },
+                                  "liqId": {
+                                    "type": "integer",
+                                    "format": "int32",
+                                    "minimum": 0,
+                                    "description": "Liquidation round ID, scoped to the subaccount. Shared by all records in the round.",
+                                    "example": 3
+                                  },
+                                  "time": {
+                                    "description": "Block timestamp when the liquidation event was emitted (Unix timestamp in milliseconds).",
+                                    "type": "integer",
+                                    "format": "int64",
+                                    "minimum": 1000000000000,
+                                    "maximum": 4102444800000,
+                                    "example": 1678886400000
+                                  },
+                                  "subaccount": {
+                                    "description": "Subaccount that was liquidated.",
+                                    "type": "string",
+                                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                                    "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                                  },
+                                  "liquidator": {
+                                    "description": "Executing liquidator for ordinary liquidation, or the counterparty whose risk is reduced for ADL. Not necessarily the transaction submitter.",
+                                    "type": "string",
+                                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                                    "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                                  },
+                                  "liqType": {
+                                    "type": "string",
+                                    "description": "The type of liquidation event.\n\n| Value | Description |\n|---|---|\n| `LIQUIDATE_PERP` | Perpetual liquidation. |\n| `LIQUIDATE_SPOT` | Spot or lending liquidation. |\n\nEach type includes orderbook execution, takeover, ADL, and cancellation-only records.\n",
+                                    "enum": [
+                                      "LIQUIDATE_PERP",
+                                      "LIQUIDATE_SPOT"
+                                    ],
+                                    "example": "LIQUIDATE_PERP"
+                                  },
+                                  "detail": {
+                                    "description": "Type-specific details. The variant is determined by `liqType`:\n- `LIQUIDATE_PERP`   → LiqDetailPerp - `LIQUIDATE_SPOT`   → LiqDetailSpot\n",
+                                    "oneOf": [
+                                      {
+                                        "type": "object",
+                                        "description": "Perpetual liquidation details. A cancellation-only record has zero quantity, order IDs, and fees.\n",
+                                        "required": [
+                                          "marketId",
+                                          "settlementPrice",
+                                          "liquidateBaseQty",
+                                          "targetAccountOrderId",
+                                          "liquidatorOrderId",
+                                          "liquidatorFee",
+                                          "insuranceFundFee"
+                                        ],
+                                        "x-on-chain": {
+                                          "struct": "LiquidatePerpDetail",
+                                          "registry": "pallets/primitives/src/types.rs",
+                                          "mappings": {
+                                            "marketId": "market_index",
+                                            "settlementPrice": "oracle_price",
+                                            "liquidateBaseQty": "liquidate_base_amount",
+                                            "targetAccountOrderId": "target_account_order_id",
+                                            "liquidatorOrderId": "liquidator_order_id",
+                                            "liquidatorFee": "liquidator_fee",
+                                            "insuranceFundFee": "if_fee"
+                                          }
+                                        },
+                                        "properties": {
+                                          "marketId": {
+                                            "type": "integer",
+                                            "format": "int32",
+                                            "minimum": 0,
+                                            "description": "Perpetual market ID. When an account-wide record contains only cancellations, all detail fields are zero. In that case, this field does not identify a market.\n",
+                                            "example": 1
+                                          },
+                                          "settlementPrice": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Reference price in USDC. Ordinary orderbook and takeover records contain the mark price; ADL records contain the bankruptcy execution price. May be zero for a cancellation-only record.\n",
+                                            "example": "84518.94"
+                                          },
+                                          "liquidateBaseQty": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Base asset quantity liquidated.",
+                                            "example": "10.863"
+                                          },
+                                          "targetAccountOrderId": {
+                                            "description": "Order ID used to reduce the liquidated subaccount's position. \"0\" when no order was placed.",
+                                            "example": "42",
+                                            "type": "string"
+                                          },
+                                          "liquidatorOrderId": {
+                                            "description": "Order ID used by the takeover or ADL counterparty. \"0\" for orderbook liquidation or when no counterparty order was placed.\n",
+                                            "example": "17",
+                                            "type": "string"
+                                          },
+                                          "liquidatorFee": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Liquidator reward in USDC. Zero for ADL and cancellation-only records.\n",
+                                            "example": "0.196052"
+                                          },
+                                          "insuranceFundFee": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Insurance fund fee in USDC. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
+                                            "example": "0"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "type": "object",
+                                        "description": "Spot or lending liquidation details.",
+                                        "required": [
+                                          "assetSymbol",
+                                          "assetPrice",
+                                          "assetTransferQty",
+                                          "liabilitySymbol",
+                                          "liabilityPrice",
+                                          "liabilityTransferQty",
+                                          "liquidatorFee",
+                                          "insuranceFundFee"
+                                        ],
+                                        "x-on-chain": {
+                                          "struct": "LiquidateSpotDetail",
+                                          "registry": "pallets/primitives/src/types.rs",
+                                          "mappings": {
+                                            "assetSymbol": "asset_symbol",
+                                            "assetPrice": "asset_price",
+                                            "assetTransferQty": "asset_liquidate_transfer_amount",
+                                            "liabilitySymbol": "liability_symbol",
+                                            "liabilityPrice": "liability_price",
+                                            "liabilityTransferQty": "liability_liquidate_transfer_amount",
+                                            "liquidatorFee": "liquidator_fee",
+                                            "insuranceFundFee": "if_fee"
+                                          }
+                                        },
+                                        "properties": {
+                                          "assetSymbol": {
+                                            "type": "string",
+                                            "description": "Asset ticker sold or transferred from the liquidated subaccount.",
+                                            "example": "BTC"
+                                          },
+                                          "assetPrice": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Reference price of the transferred asset, in USDC. May reflect ADL pricing. Zero for a cancellation-only record.",
+                                            "example": "84518.94"
+                                          },
+                                          "assetTransferQty": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Asset quantity sold or transferred. Zero when only orders were canceled.",
+                                            "example": "10.863"
+                                          },
+                                          "liabilitySymbol": {
+                                            "type": "string",
+                                            "description": "Asset ticker received to reduce the liquidated subaccount's liability.",
+                                            "example": "USDC"
+                                          },
+                                          "liabilityPrice": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Reference price of the liability asset, in USDC. Zero for a cancellation-only record.",
+                                            "example": "1.0"
+                                          },
+                                          "liabilityTransferQty": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Liability asset quantity received through the liquidation, before any applicable insurance fund fee.",
+                                            "example": "5000.0"
+                                          },
+                                          "liquidatorFee": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Liquidator reward recorded in USDC. For a takeover, this represents the reward embedded in the asset transfer, not an additional payment. Zero for ADL and cancellation-only records.\n",
+                                            "example": "2.5"
+                                          },
+                                          "insuranceFundFee": {
+                                            "type": "string",
+                                            "format": "decimal",
+                                            "description": "Insurance fund fee recorded in USDC, even when collected in another asset. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
+                                            "example": "0"
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  "marginShortage": {
+                                    "type": "string",
+                                    "format": "decimal",
+                                    "description": "The subaccount's margin requirement shortfall for this operation, in USDC.",
+                                    "example": "123.456"
+                                  },
+                                  "marginFreed": {
+                                    "type": "string",
+                                    "format": "decimal",
+                                    "description": "Margin freed for the subaccount by this operation, in USDC.",
+                                    "example": "654.321"
+                                  },
+                                  "canceledOrders": {
+                                    "description": "All orders canceled for the subaccount by this operation. Can include spot orders and orders from other perpetual markets.",
+                                    "type": "object",
+                                    "required": [
+                                      "spot",
+                                      "perp"
+                                    ],
+                                    "x-on-chain": {
+                                      "struct": "CancelOrders",
+                                      "registry": "pallets/primitives/src/types.rs",
+                                      "mappings": {
+                                        "spot": "spot_order_ids",
+                                        "perp": "perp_order_ids"
+                                      }
+                                    },
+                                    "properties": {
+                                      "spot": {
+                                        "type": "array",
+                                        "description": "Spot orders canceled, grouped by trading pair.",
+                                        "example": [],
+                                        "items": {
+                                          "type": "object",
+                                          "description": "Spot orders canceled for a single trading pair during a liquidation.",
+                                          "required": [
+                                            "marketId",
+                                            "orders"
+                                          ],
+                                          "x-on-chain": {
+                                            "struct": "SpotCancelOrders",
+                                            "registry": "pallets/primitives/src/types.rs",
+                                            "mappings": {
+                                              "marketId": "pair",
+                                              "orders": "orders"
+                                            }
+                                          },
+                                          "properties": {
+                                            "marketId": {
+                                              "type": "string",
+                                              "pattern": "^0x[a-fA-F0-9]{64}$",
+                                              "description": "Trading pair identifier (H256).",
+                                              "example": "0x7cf219b32b35000e20677b2c149c92b785bd8417c3c0834376a8a1df31734d6a"
+                                            },
+                                            "orders": {
+                                              "type": "array",
+                                              "description": "Canceled order entries for this pair.",
+                                              "items": {
+                                                "type": "object",
+                                                "description": "A single canceled spot order entry within a trading pair.",
+                                                "required": [
+                                                  "orderId",
+                                                  "side"
+                                                ],
+                                                "x-on-chain": {
+                                                  "tuple": "(u64, bool) — identified by order id and buy flag"
+                                                },
+                                                "properties": {
+                                                  "orderId": {
+                                                    "description": "Spot order ID.",
+                                                    "type": "string",
+                                                    "example": "123456789"
+                                                  },
+                                                  "side": {
+                                                    "description": "Order side (BUY or SELL).",
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "BUY",
+                                                      "SELL"
+                                                    ],
+                                                    "example": "BUY"
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "perp": {
+                                        "type": "array",
+                                        "description": "Perp order IDs canceled.",
+                                        "example": [
+                                          "1001",
+                                          "1002"
+                                        ],
+                                        "items": {
+                                          "type": "string",
+                                          "description": "A unique identifier. Always a string — compare by equality, do not parse as a number.",
+                                          "example": "123456789"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "bankrupt": {
+                                    "type": "boolean",
+                                    "description": "Bankruptcy flag recorded for this operation. True for ADL and may also be true for ordinary liquidation; it does not report the account's current status.\n",
+                                    "example": false
+                                  },
+                                  "txHash": {
+                                    "type": "string",
+                                    "pattern": "^0x[a-fA-F0-9]{64}$",
+                                    "description": "An on-chain transaction hash in 0x-prefixed hex format (32 bytes).",
+                                    "example": "0xe9934d16d98c70b47e6f7b62aaf3adbeb5dec3e9d0b69660d6294819f526b47b"
+                                  },
+                                  "blockNumber": {
+                                    "type": "integer",
+                                    "format": "int64",
+                                    "minimum": 0,
+                                    "description": "Block number at which the liquidation occurred.",
+                                    "example": 15089464
+                                  }
+                                }
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "liqType": {
+                                    "const": "LIQUIDATE_PERP"
+                                  },
+                                  "detail": {
+                                    "type": "object",
+                                    "description": "Perpetual liquidation details. A cancellation-only record has zero quantity, order IDs, and fees.\n",
+                                    "required": [
+                                      "marketId",
+                                      "settlementPrice",
+                                      "liquidateBaseQty",
+                                      "targetAccountOrderId",
+                                      "liquidatorOrderId",
+                                      "liquidatorFee",
+                                      "insuranceFundFee"
+                                    ],
+                                    "x-on-chain": {
+                                      "struct": "LiquidatePerpDetail",
+                                      "registry": "pallets/primitives/src/types.rs",
+                                      "mappings": {
+                                        "marketId": "market_index",
+                                        "settlementPrice": "oracle_price",
+                                        "liquidateBaseQty": "liquidate_base_amount",
+                                        "targetAccountOrderId": "target_account_order_id",
+                                        "liquidatorOrderId": "liquidator_order_id",
+                                        "liquidatorFee": "liquidator_fee",
+                                        "insuranceFundFee": "if_fee"
+                                      }
+                                    },
+                                    "properties": {
+                                      "marketId": {
+                                        "type": "integer",
+                                        "format": "int32",
+                                        "minimum": 0,
+                                        "description": "Perpetual market ID. When an account-wide record contains only cancellations, all detail fields are zero. In that case, this field does not identify a market.\n",
+                                        "example": 1
+                                      },
+                                      "settlementPrice": {
+                                        "type": "string",
+                                        "format": "decimal",
+                                        "description": "Reference price in USDC. Ordinary orderbook and takeover records contain the mark price; ADL records contain the bankruptcy execution price. May be zero for a cancellation-only record.\n",
+                                        "example": "84518.94"
+                                      },
+                                      "liquidateBaseQty": {
+                                        "type": "string",
+                                        "format": "decimal",
+                                        "description": "Base asset quantity liquidated.",
+                                        "example": "10.863"
+                                      },
+                                      "targetAccountOrderId": {
+                                        "description": "Order ID used to reduce the liquidated subaccount's position. \"0\" when no order was placed.",
+                                        "example": "42",
+                                        "type": "string"
+                                      },
+                                      "liquidatorOrderId": {
+                                        "description": "Order ID used by the takeover or ADL counterparty. \"0\" for orderbook liquidation or when no counterparty order was placed.\n",
+                                        "example": "17",
+                                        "type": "string"
+                                      },
+                                      "liquidatorFee": {
+                                        "type": "string",
+                                        "format": "decimal",
+                                        "description": "Liquidator reward in USDC. Zero for ADL and cancellation-only records.\n",
+                                        "example": "0.196052"
+                                      },
+                                      "insuranceFundFee": {
+                                        "type": "string",
+                                        "format": "decimal",
+                                        "description": "Insurance fund fee in USDC. Zero for ADL or an already-bankrupt account. Otherwise capped by the remaining positive equity after execution and the liquidator reward.\n",
+                                        "example": "0"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10007,
+                  "msg": "Market 'BTC-USDC' does not exist or is not active.",
+                  "param": "symbol"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/perp/markets/{symbol}/adl-queue": {
+      "get": {
+        "tags": [
+          "Perp Markets"
+        ],
+        "summary": "Get ADL Queue",
+        "security": [],
+        "description": "Returns the latest auto-deleveraging (ADL) ranking snapshot for a perpetual market. The server updates rankings every 30 minutes. The snapshot provides reference rankings, not a guaranteed execution order for an ADL round. The `limit` applies separately to long and short positions. If the market has no candidates, the response contains an empty `candidates` array. If no snapshot is available, the server returns HTTP 503.\n",
+        "operationId": "getPerpAdlQueue",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "description": "The symbol of the perpetual market.",
+            "example": "BTC-USDC",
+            "schema": {
+              "type": "string",
+              "description": "A perpetual market symbol.",
+              "enum": [
+                "BTC-USDC",
+                "ETH-USDC",
+                "SOL-USDC"
+              ],
+              "example": "BTC-USDC"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum candidates per side. The default returns up to 20 candidates in total. Values outside 1 to 30 return HTTP 400.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 10,
+              "example": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The latest ADL ranking snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "An auto-deleveraging (ADL) ranking snapshot for a perpetual market. The server updates the snapshot every 30 minutes. Candidates have positive cumulative price PnL and positive unweighted account equity. The global insurance fund account is excluded. Each side lists potential counterparties for a bankrupt position on the opposite side. Actual ADL execution also depends on current positions, executable quantities, and health requirements.\n",
+                  "x-on-chain": {
+                    "mappings": {
+                      "symbol": "(indexer) market symbol",
+                      "candidates": "(indexer) top-ranked eligible positions per side",
+                      "time": "(indexer) snapshot timestamp"
+                    }
+                  },
+                  "required": [
+                    "symbol",
+                    "time",
+                    "candidates"
+                  ],
+                  "properties": {
+                    "symbol": {
+                      "type": "string",
+                      "description": "A perpetual market symbol.",
+                      "enum": [
+                        "BTC-USDC",
+                        "ETH-USDC",
+                        "SOL-USDC"
+                      ],
+                      "example": "BTC-USDC"
+                    },
+                    "time": {
+                      "description": "Time of the latest successful ranking calculation (Unix milliseconds). Repeated requests retain this time until the snapshot updates.",
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1000000000000,
+                      "maximum": 4102444800000,
+                      "example": 1678886400000
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "maxItems": 60,
+                      "description": "Up to `limit` candidates per side, with BUY entries before SELL entries. Each side starts at rank 1 and uses consecutive ranks. Within each side, entries follow descending ADL score, then descending position quantity, then ascending subaccount address by its 20-byte value. A side with fewer candidates returns all its candidates. If neither side has candidates, the array is empty.\n",
+                      "items": {
+                        "type": "object",
+                        "description": "One candidate in an ADL ranking snapshot. All values describe the position at the snapshot time. The snapshot rank does not guarantee the execution order of an ADL round.\n",
+                        "x-on-chain": {
+                          "mappings": {
+                            "rank": "(indexer) derived ranking",
+                            "subaccount": "(indexer) from open positions",
+                            "side": "(indexer) position side",
+                            "qty": "(indexer) open position quantity",
+                            "adlScore": "(indexer) cumulative price PnL ratio times effective leverage"
+                          }
+                        },
+                        "required": [
+                          "rank",
+                          "subaccount",
+                          "side",
+                          "qty",
+                          "adlScore"
+                        ],
+                        "properties": {
+                          "rank": {
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 1,
+                            "maximum": 30,
+                            "description": "Position within its side of the snapshot, starting at 1 for the highest priority.\n",
+                            "example": 1
+                          },
+                          "subaccount": {
+                            "description": "Subaccount holding the position.",
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]{40}$",
+                            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                          },
+                          "side": {
+                            "description": "Position side (BUY for Long, SELL for Short).",
+                            "type": "string",
+                            "enum": [
+                              "BUY",
+                              "SELL"
+                            ],
+                            "example": "BUY"
+                          },
+                          "qty": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Positive open position quantity in base asset units at the snapshot time. This quantity is not the executable ADL quantity.",
+                            "example": "12.50"
+                          },
+                          "adlScore": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "The positive ADL score equals cumulative price PnL divided by entry notional, multiplied by effective leverage. Entry notional equals entry price times position quantity. Effective leverage equals mark-price notional divided by positive unweighted account equity. Cumulative price PnL uses the entry price and snapshot mark price, excluding funding and fees. Higher scores have higher snapshot priority. Actual ADL rounds use executable quantity for ties, so their order can differ from the snapshot.\n",
+                            "example": "1.875"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The requested resource does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10007,
+                  "msg": "Market 'BTC-USDC' does not exist or is not active.",
+                  "param": "symbol"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/lending/markets": {
       "get": {
         "tags": [
@@ -18348,6 +19361,554 @@
           }
         }
       }
+    },
+    "/v1/insurance-fund": {
+      "get": {
+        "tags": [
+          "Insurance Fund"
+        ],
+        "summary": "Get Insurance Fund Snapshot",
+        "security": [],
+        "description": "Retrieves the current real-time state of the protocol insurance fund.",
+        "operationId": "getInsuranceFund",
+        "responses": {
+          "200": {
+            "description": "The current insurance fund snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Real-time snapshot of the protocol insurance fund. The fund settles final USDC bankruptcy shortfalls; USDC reserved for in-progress liquidations is not available for new payouts.\n",
+                  "x-on-chain": {
+                    "mappings": {
+                      "address": "pallet_subaccount::GlobalInsuranceFund",
+                      "balance": "(indexer) USDC balance of the insurance fund settlement subaccount",
+                      "reserved": "pallet_lending::TotalInsuranceFundReserved",
+                      "available": "balance minus reserved",
+                      "coverageMultiplier": "pallet_subaccount::InsuranceFundCoverageMultiplier",
+                      "pendingAssets": "(indexer) non-USDC balances of the insurance fund settlement subaccount",
+                      "time": "(indexer) snapshot timestamp"
+                    }
+                  },
+                  "required": [
+                    "time",
+                    "address",
+                    "balance",
+                    "reserved",
+                    "available",
+                    "coverageMultiplier",
+                    "pendingAssets"
+                  ],
+                  "properties": {
+                    "time": {
+                      "description": "Snapshot timestamp (Unix timestamp in milliseconds).",
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1000000000000,
+                      "maximum": 4102444800000,
+                      "example": 1678886400000
+                    },
+                    "address": {
+                      "description": "Global insurance fund settlement subaccount.",
+                      "type": "string",
+                      "pattern": "^0x[a-fA-F0-9]{40}$",
+                      "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                    },
+                    "balance": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "Total USDC held by the fund. Excludes pending-conversion assets.",
+                      "example": "1523450.75"
+                    },
+                    "reserved": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "USDC locked for in-progress liquidations; unavailable for new payouts until released.",
+                      "example": "120000.00"
+                    },
+                    "available": {
+                      "type": "string",
+                      "format": "decimal",
+                      "description": "USDC currently usable to cover new bankruptcy shortfalls; `balance` minus `reserved`.",
+                      "example": "1403450.75"
+                    },
+                    "coverageMultiplier": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1,
+                      "description": "Governance-set multiplier for fund sufficiency: a bankruptcy is covered when `available` is at least the USDC shortfall times this multiplier; otherwise auto-deleveraging (ADL) applies. The same multiplier sizes per-liquidation reservations.\n",
+                      "example": 2
+                    },
+                    "pendingAssets": {
+                      "type": "array",
+                      "description": "Non-USDC assets the fund received (for example from fees) that have not yet been converted to USDC. Not counted in `balance` or `available`.\n",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "asset",
+                          "qty"
+                        ],
+                        "properties": {
+                          "asset": {
+                            "type": "string",
+                            "description": "The asset ticker symbol.",
+                            "example": "ETH"
+                          },
+                          "qty": {
+                            "type": "string",
+                            "format": "decimal",
+                            "description": "Quantity of the asset held.",
+                            "example": "12.50"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/insurance-fund/history": {
+      "get": {
+        "tags": [
+          "Insurance Fund"
+        ],
+        "summary": "Get Insurance Fund History",
+        "security": [],
+        "description": "Retrieves historical insurance fund snapshots. If `startTime` and `endTime` are not provided, the most recent records up to the `limit` are returned.\n",
+        "operationId": "getInsuranceFundHistory",
+        "parameters": [
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "description": "The interval between insurance fund snapshots. The minimum interval is one hour.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "2h",
+                "4h",
+                "8h",
+                "12h",
+                "1d",
+                "3d",
+                "1w",
+                "1M"
+              ],
+              "default": "1d",
+              "example": "1d"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of records to return.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "startTime",
+            "in": "query",
+            "required": false,
+            "description": "Filter records at or after this timestamp (milliseconds).",
+            "example": 1678800000000,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "description": "A Unix timestamp in milliseconds.",
+              "example": 1678886400000
+            }
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "required": false,
+            "description": "Filter records at or before this timestamp (milliseconds).",
+            "example": 1678886400000,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "description": "A Unix timestamp in milliseconds.",
+              "example": 1678886400000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of historical insurance fund snapshots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "description": "An array of historical insurance fund snapshots.",
+                  "items": {
+                    "type": "object",
+                    "description": "Real-time snapshot of the protocol insurance fund. The fund settles final USDC bankruptcy shortfalls; USDC reserved for in-progress liquidations is not available for new payouts.\n",
+                    "x-on-chain": {
+                      "mappings": {
+                        "address": "pallet_subaccount::GlobalInsuranceFund",
+                        "balance": "(indexer) USDC balance of the insurance fund settlement subaccount",
+                        "reserved": "pallet_lending::TotalInsuranceFundReserved",
+                        "available": "balance minus reserved",
+                        "coverageMultiplier": "pallet_subaccount::InsuranceFundCoverageMultiplier",
+                        "pendingAssets": "(indexer) non-USDC balances of the insurance fund settlement subaccount",
+                        "time": "(indexer) snapshot timestamp"
+                      }
+                    },
+                    "required": [
+                      "time",
+                      "address",
+                      "balance",
+                      "reserved",
+                      "available",
+                      "coverageMultiplier",
+                      "pendingAssets"
+                    ],
+                    "properties": {
+                      "time": {
+                        "description": "Snapshot timestamp (Unix timestamp in milliseconds).",
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1000000000000,
+                        "maximum": 4102444800000,
+                        "example": 1678886400000
+                      },
+                      "address": {
+                        "description": "Global insurance fund settlement subaccount.",
+                        "type": "string",
+                        "pattern": "^0x[a-fA-F0-9]{40}$",
+                        "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                      },
+                      "balance": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "Total USDC held by the fund. Excludes pending-conversion assets.",
+                        "example": "1523450.75"
+                      },
+                      "reserved": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "USDC locked for in-progress liquidations; unavailable for new payouts until released.",
+                        "example": "120000.00"
+                      },
+                      "available": {
+                        "type": "string",
+                        "format": "decimal",
+                        "description": "USDC currently usable to cover new bankruptcy shortfalls; `balance` minus `reserved`.",
+                        "example": "1403450.75"
+                      },
+                      "coverageMultiplier": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1,
+                        "description": "Governance-set multiplier for fund sufficiency: a bankruptcy is covered when `available` is at least the USDC shortfall times this multiplier; otherwise auto-deleveraging (ADL) applies. The same multiplier sizes per-liquidation reservations.\n",
+                        "example": 2
+                      },
+                      "pendingAssets": {
+                        "type": "array",
+                        "description": "Non-USDC assets the fund received (for example from fees) that have not yet been converted to USDC. Not counted in `balance` or `available`.\n",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "asset",
+                            "qty"
+                          ],
+                          "properties": {
+                            "asset": {
+                              "type": "string",
+                              "description": "The asset ticker symbol.",
+                              "example": "ETH"
+                            },
+                            "qty": {
+                              "type": "string",
+                              "format": "decimal",
+                              "description": "Quantity of the asset held.",
+                              "example": "12.50"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request body or URL is malformed (invalid JSON, wrong types, missing required fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10002,
+                  "msg": "Request body is not valid JSON."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests. The client breached the designated rate limit weight.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10010,
+                  "msg": "Rate limit exceeded. Retry after 5 seconds."
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. The server is temporarily unable to handle the request (e.g., maintenance, chain node disconnected, indexer lagging).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "msg"
+                  ],
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "format": "int32"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "API layer: 5-digit integer (10000–19999). On-chain: 'pallet_error' string (e.g. '19_0').",
+                      "example": 10001
+                    },
+                    "msg": {
+                      "type": "string",
+                      "description": "A human-readable error message explaining the failure.",
+                      "example": "Market symbol does not exist."
+                    },
+                    "param": {
+                      "type": "string",
+                      "description": "Optional. If the error was caused by a specific request parameter, its name is returned here.",
+                      "example": "symbol"
+                    }
+                  }
+                },
+                "example": {
+                  "code": 10012,
+                  "msg": "Service temporarily unavailable. Please try again later."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -19672,7 +21233,7 @@
                     "type": "integer",
                     "format": "int32",
                     "minimum": 0,
-                    "description": "Perpetual market ID.",
+                    "description": "Perpetual market ID. When an account-wide record contains only cancellations, all detail fields are zero. In that case, this field does not identify a market.\n",
                     "example": 1
                   },
                   "settlementPrice": {
@@ -19792,17 +21353,17 @@
           "marginShortage": {
             "type": "string",
             "format": "decimal",
-            "description": "Margin requirement shortfall in USDC for this operation.",
+            "description": "The subaccount's margin requirement shortfall for this operation, in USDC.",
             "example": "123.456"
           },
           "marginFreed": {
             "type": "string",
             "format": "decimal",
-            "description": "Margin freed by this operation, in USDC.",
+            "description": "Margin freed for the subaccount by this operation, in USDC.",
             "example": "654.321"
           },
           "canceledOrders": {
-            "description": "Orders canceled due to this liquidation.",
+            "description": "All orders canceled for the subaccount by this operation. Can include spot orders and orders from other perpetual markets.",
             "type": "object",
             "required": [
               "spot",
@@ -19942,7 +21503,7 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0,
-            "description": "Perpetual market ID.",
+            "description": "Perpetual market ID. When an account-wide record contains only cancellations, all detail fields are zero. In that case, this field does not identify a market.\n",
             "example": 1
           },
           "settlementPrice": {
@@ -20222,6 +21783,188 @@
           }
         }
       },
+      "InsuranceFund": {
+        "type": "object",
+        "description": "Real-time snapshot of the protocol insurance fund. The fund settles final USDC bankruptcy shortfalls; USDC reserved for in-progress liquidations is not available for new payouts.\n",
+        "x-on-chain": {
+          "mappings": {
+            "address": "pallet_subaccount::GlobalInsuranceFund",
+            "balance": "(indexer) USDC balance of the insurance fund settlement subaccount",
+            "reserved": "pallet_lending::TotalInsuranceFundReserved",
+            "available": "balance minus reserved",
+            "coverageMultiplier": "pallet_subaccount::InsuranceFundCoverageMultiplier",
+            "pendingAssets": "(indexer) non-USDC balances of the insurance fund settlement subaccount",
+            "time": "(indexer) snapshot timestamp"
+          }
+        },
+        "required": [
+          "time",
+          "address",
+          "balance",
+          "reserved",
+          "available",
+          "coverageMultiplier",
+          "pendingAssets"
+        ],
+        "properties": {
+          "time": {
+            "description": "Snapshot timestamp (Unix timestamp in milliseconds).",
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000000000000,
+            "maximum": 4102444800000,
+            "example": 1678886400000
+          },
+          "address": {
+            "description": "Global insurance fund settlement subaccount.",
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+          },
+          "balance": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Total USDC held by the fund. Excludes pending-conversion assets.",
+            "example": "1523450.75"
+          },
+          "reserved": {
+            "type": "string",
+            "format": "decimal",
+            "description": "USDC locked for in-progress liquidations; unavailable for new payouts until released.",
+            "example": "120000.00"
+          },
+          "available": {
+            "type": "string",
+            "format": "decimal",
+            "description": "USDC currently usable to cover new bankruptcy shortfalls; `balance` minus `reserved`.",
+            "example": "1403450.75"
+          },
+          "coverageMultiplier": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Governance-set multiplier for fund sufficiency: a bankruptcy is covered when `available` is at least the USDC shortfall times this multiplier; otherwise auto-deleveraging (ADL) applies. The same multiplier sizes per-liquidation reservations.\n",
+            "example": 2
+          },
+          "pendingAssets": {
+            "type": "array",
+            "description": "Non-USDC assets the fund received (for example from fees) that have not yet been converted to USDC. Not counted in `balance` or `available`.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "asset",
+                "qty"
+              ],
+              "properties": {
+                "asset": {
+                  "type": "string",
+                  "description": "The asset ticker symbol.",
+                  "example": "ETH"
+                },
+                "qty": {
+                  "type": "string",
+                  "format": "decimal",
+                  "description": "Quantity of the asset held.",
+                  "example": "12.50"
+                }
+              }
+            }
+          }
+        }
+      },
+      "InsuranceFundHistory": {
+        "type": "array",
+        "description": "An array of historical insurance fund snapshots.",
+        "items": {
+          "type": "object",
+          "description": "Real-time snapshot of the protocol insurance fund. The fund settles final USDC bankruptcy shortfalls; USDC reserved for in-progress liquidations is not available for new payouts.\n",
+          "x-on-chain": {
+            "mappings": {
+              "address": "pallet_subaccount::GlobalInsuranceFund",
+              "balance": "(indexer) USDC balance of the insurance fund settlement subaccount",
+              "reserved": "pallet_lending::TotalInsuranceFundReserved",
+              "available": "balance minus reserved",
+              "coverageMultiplier": "pallet_subaccount::InsuranceFundCoverageMultiplier",
+              "pendingAssets": "(indexer) non-USDC balances of the insurance fund settlement subaccount",
+              "time": "(indexer) snapshot timestamp"
+            }
+          },
+          "required": [
+            "time",
+            "address",
+            "balance",
+            "reserved",
+            "available",
+            "coverageMultiplier",
+            "pendingAssets"
+          ],
+          "properties": {
+            "time": {
+              "description": "Snapshot timestamp (Unix timestamp in milliseconds).",
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1000000000000,
+              "maximum": 4102444800000,
+              "example": 1678886400000
+            },
+            "address": {
+              "description": "Global insurance fund settlement subaccount.",
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$",
+              "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+            },
+            "balance": {
+              "type": "string",
+              "format": "decimal",
+              "description": "Total USDC held by the fund. Excludes pending-conversion assets.",
+              "example": "1523450.75"
+            },
+            "reserved": {
+              "type": "string",
+              "format": "decimal",
+              "description": "USDC locked for in-progress liquidations; unavailable for new payouts until released.",
+              "example": "120000.00"
+            },
+            "available": {
+              "type": "string",
+              "format": "decimal",
+              "description": "USDC currently usable to cover new bankruptcy shortfalls; `balance` minus `reserved`.",
+              "example": "1403450.75"
+            },
+            "coverageMultiplier": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "description": "Governance-set multiplier for fund sufficiency: a bankruptcy is covered when `available` is at least the USDC shortfall times this multiplier; otherwise auto-deleveraging (ADL) applies. The same multiplier sizes per-liquidation reservations.\n",
+              "example": 2
+            },
+            "pendingAssets": {
+              "type": "array",
+              "description": "Non-USDC assets the fund received (for example from fees) that have not yet been converted to USDC. Not counted in `balance` or `available`.\n",
+              "items": {
+                "type": "object",
+                "required": [
+                  "asset",
+                  "qty"
+                ],
+                "properties": {
+                  "asset": {
+                    "type": "string",
+                    "description": "The asset ticker symbol.",
+                    "example": "ETH"
+                  },
+                  "qty": {
+                    "type": "string",
+                    "format": "decimal",
+                    "description": "Quantity of the asset held.",
+                    "example": "12.50"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "BadDebt": {
         "type": "object",
         "description": "A remaining insurance-fund recovery claim against a subaccount in one asset. Eligible wallet deposits automatically repay matching recovery claims after existing borrowing is repaid. An outstanding claim restricts some account operations until repaid.\n",
@@ -20371,6 +22114,161 @@
             "minimum": 0,
             "description": "Number of distinct primary owner addresses with at least one spot or perpetual matched fill in the trailing 24-hour window. An owner is counted once across products and subaccounts; a trade submitted by a delegate is attributed to the primary owner of the traded subaccount.\n",
             "example": 8412
+          }
+        }
+      },
+      "AdlQueue": {
+        "type": "object",
+        "description": "An auto-deleveraging (ADL) ranking snapshot for a perpetual market. The server updates the snapshot every 30 minutes. Candidates have positive cumulative price PnL and positive unweighted account equity. The global insurance fund account is excluded. Each side lists potential counterparties for a bankrupt position on the opposite side. Actual ADL execution also depends on current positions, executable quantities, and health requirements.\n",
+        "x-on-chain": {
+          "mappings": {
+            "symbol": "(indexer) market symbol",
+            "candidates": "(indexer) top-ranked eligible positions per side",
+            "time": "(indexer) snapshot timestamp"
+          }
+        },
+        "required": [
+          "symbol",
+          "time",
+          "candidates"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "A perpetual market symbol.",
+            "enum": [
+              "BTC-USDC",
+              "ETH-USDC",
+              "SOL-USDC"
+            ],
+            "example": "BTC-USDC"
+          },
+          "time": {
+            "description": "Time of the latest successful ranking calculation (Unix milliseconds). Repeated requests retain this time until the snapshot updates.",
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1000000000000,
+            "maximum": 4102444800000,
+            "example": 1678886400000
+          },
+          "candidates": {
+            "type": "array",
+            "maxItems": 60,
+            "description": "Up to `limit` candidates per side, with BUY entries before SELL entries. Each side starts at rank 1 and uses consecutive ranks. Within each side, entries follow descending ADL score, then descending position quantity, then ascending subaccount address by its 20-byte value. A side with fewer candidates returns all its candidates. If neither side has candidates, the array is empty.\n",
+            "items": {
+              "type": "object",
+              "description": "One candidate in an ADL ranking snapshot. All values describe the position at the snapshot time. The snapshot rank does not guarantee the execution order of an ADL round.\n",
+              "x-on-chain": {
+                "mappings": {
+                  "rank": "(indexer) derived ranking",
+                  "subaccount": "(indexer) from open positions",
+                  "side": "(indexer) position side",
+                  "qty": "(indexer) open position quantity",
+                  "adlScore": "(indexer) cumulative price PnL ratio times effective leverage"
+                }
+              },
+              "required": [
+                "rank",
+                "subaccount",
+                "side",
+                "qty",
+                "adlScore"
+              ],
+              "properties": {
+                "rank": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1,
+                  "maximum": 30,
+                  "description": "Position within its side of the snapshot, starting at 1 for the highest priority.\n",
+                  "example": 1
+                },
+                "subaccount": {
+                  "description": "Subaccount holding the position.",
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]{40}$",
+                  "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+                },
+                "side": {
+                  "description": "Position side (BUY for Long, SELL for Short).",
+                  "type": "string",
+                  "enum": [
+                    "BUY",
+                    "SELL"
+                  ],
+                  "example": "BUY"
+                },
+                "qty": {
+                  "type": "string",
+                  "format": "decimal",
+                  "description": "Positive open position quantity in base asset units at the snapshot time. This quantity is not the executable ADL quantity.",
+                  "example": "12.50"
+                },
+                "adlScore": {
+                  "type": "string",
+                  "format": "decimal",
+                  "description": "The positive ADL score equals cumulative price PnL divided by entry notional, multiplied by effective leverage. Entry notional equals entry price times position quantity. Effective leverage equals mark-price notional divided by positive unweighted account equity. Cumulative price PnL uses the entry price and snapshot mark price, excluding funding and fees. Higher scores have higher snapshot priority. Actual ADL rounds use executable quantity for ties, so their order can differ from the snapshot.\n",
+                  "example": "1.875"
+                }
+              }
+            }
+          }
+        }
+      },
+      "AdlQueueItem": {
+        "type": "object",
+        "description": "One candidate in an ADL ranking snapshot. All values describe the position at the snapshot time. The snapshot rank does not guarantee the execution order of an ADL round.\n",
+        "x-on-chain": {
+          "mappings": {
+            "rank": "(indexer) derived ranking",
+            "subaccount": "(indexer) from open positions",
+            "side": "(indexer) position side",
+            "qty": "(indexer) open position quantity",
+            "adlScore": "(indexer) cumulative price PnL ratio times effective leverage"
+          }
+        },
+        "required": [
+          "rank",
+          "subaccount",
+          "side",
+          "qty",
+          "adlScore"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 30,
+            "description": "Position within its side of the snapshot, starting at 1 for the highest priority.\n",
+            "example": 1
+          },
+          "subaccount": {
+            "description": "Subaccount holding the position.",
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "example": "0x980dda997141caa099752905d32f4a3fb980a4e3"
+          },
+          "side": {
+            "description": "Position side (BUY for Long, SELL for Short).",
+            "type": "string",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "example": "BUY"
+          },
+          "qty": {
+            "type": "string",
+            "format": "decimal",
+            "description": "Positive open position quantity in base asset units at the snapshot time. This quantity is not the executable ADL quantity.",
+            "example": "12.50"
+          },
+          "adlScore": {
+            "type": "string",
+            "format": "decimal",
+            "description": "The positive ADL score equals cumulative price PnL divided by entry notional, multiplied by effective leverage. Entry notional equals entry price times position quantity. Effective leverage equals mark-price notional divided by positive unweighted account equity. Cumulative price PnL uses the entry price and snapshot mark price, excluding funding and fees. Higher scores have higher snapshot priority. Actual ADL rounds use executable quantity for ties, so their order can differ from the snapshot.\n",
+            "example": "1.875"
           }
         }
       },
@@ -22240,7 +24138,7 @@
       },
       "PerpMarket": {
         "type": "object",
-        "description": "A perpetual contract market's trading rules.",
+        "description": "Trading rules, fees, and risk parameters for a perpetual market.",
         "required": [
           "symbol",
           "marketId",
@@ -22265,10 +24163,6 @@
           "fundingRateChangeFloor",
           "clampUpperBound",
           "clampLowerBound",
-          "liqDurationBlocks",
-          "bucketSlippageStep",
-          "bucketSlippageLimit",
-          "liquidityDustValue",
           "liquidationFeeRates"
         ],
         "properties": {
@@ -22285,7 +24179,7 @@
           "marketId": {
             "type": "integer",
             "format": "int32",
-            "description": "The internal validator market ID.",
+            "description": "The numeric ID of the market on the chain.",
             "example": 3
           },
           "type": {
@@ -22320,17 +24214,18 @@
           "makerFeeRate": {
             "type": "string",
             "format": "decimal",
-            "description": "Maker fee rate as a decimal.",
+            "description": "The maker fee rate as a decimal ratio. A negative rate gives the maker a rebate. For example, \"-0.0001\" means a 0.01% rebate.",
             "example": "-0.0001"
           },
           "takerFeeRate": {
             "type": "string",
             "format": "decimal",
-            "description": "Taker fee rate as a decimal.",
+            "description": "The taker fee rate as a decimal ratio. For example, \"0.0001\" means a 0.01% fee.",
             "example": "0.0001"
           },
           "orderTypes": {
             "type": "array",
+            "description": "The order types that this market accepts.",
             "items": {
               "type": "string",
               "description": "Basic order type.",
@@ -22348,110 +24243,86 @@
           "tickSize": {
             "type": "string",
             "format": "decimal",
-            "description": "The minimum price increment.",
+            "description": "The price increment for orders. Each order price must be a multiple of this value.",
             "example": "0.01"
           },
           "minQty": {
             "type": "string",
             "format": "decimal",
-            "description": "The minimum allowed order quantity in base asset.",
+            "description": "The minimum order quantity, in units of the base asset.",
             "example": "0.001"
           },
           "stepSize": {
             "type": "string",
             "format": "decimal",
-            "description": "The minimum base asset quantity increment for orders.",
+            "description": "The quantity increment for orders, in units of the base asset. Each order quantity must be a multiple of this value.",
             "example": "0.001"
           },
           "minNotional": {
             "type": "string",
             "format": "decimal",
-            "description": "The minimum order value in quote asset.",
+            "description": "The minimum order value, in units of the quote asset.",
             "example": "5.0"
           },
           "maxOpenOrders": {
             "type": "integer",
             "format": "int32",
-            "description": "Maximum number of open orders an account can have.",
+            "description": "The maximum number of open orders per subaccount in this market.",
             "example": 128
           },
           "initMarginRatio": {
             "type": "string",
             "format": "decimal",
-            "description": "Initial margin requirement decimal.",
+            "description": "The initial margin requirement as a fraction of the position value. For example, \"0.04\" means 4%.",
             "example": "0.04"
           },
           "maintMarginRatio": {
             "type": "string",
             "format": "decimal",
-            "description": "Maintenance margin requirement decimal.",
+            "description": "The maintenance margin requirement as a fraction of the position value. For example, \"0.02\" means 2%.",
             "example": "0.02"
           },
           "maxDeviationRatio": {
             "type": "string",
             "format": "decimal",
-            "description": "Maximum allowed price deviation from the current price.",
+            "description": "The maximum execution price deviation from the mark price, as a decimal ratio. For example, \"0.50\" means 50%.",
             "example": "0.50"
           },
           "baseInterestRate": {
             "type": "string",
             "format": "decimal",
-            "description": "Base interest rate for an eight-hour period, expressed as a decimal.",
+            "description": "The base interest rate per eight hours, as a decimal ratio. The funding formula uses this rate.",
             "example": "0.0001"
           },
           "impactMarginValue": {
             "type": "string",
             "format": "decimal",
-            "description": "Margin value used to calculate the impact of a trade on the orderbook.",
+            "description": "The margin amount for the reference trade that determines impact bid and ask prices, in units of the quote asset. The funding formula uses these prices.",
             "example": "100"
           },
           "fundingRateChangeCap": {
             "type": "string",
             "format": "decimal",
-            "description": "Maximum funding rate per hour, expressed as a decimal. Applied after dividing the eight-hour funding formula result by eight; caps the resulting rate, not its change from the previous rate.",
+            "description": "The maximum hourly funding rate, as a decimal ratio. This limit applies after the eight-hour formula result is divided by eight. It limits the rate itself, not the change from the previous rate.",
             "example": "0.002"
           },
           "fundingRateChangeFloor": {
             "type": "string",
             "format": "decimal",
-            "description": "Minimum funding rate per hour, expressed as a signed decimal. Applied after dividing the eight-hour funding formula result by eight; floors the resulting rate, not its change from the previous rate.",
+            "description": "The minimum hourly funding rate, as a signed decimal ratio. This limit applies after the eight-hour formula result is divided by eight. It limits the rate itself, not the change from the previous rate.",
             "example": "-0.002"
           },
           "clampUpperBound": {
             "type": "string",
             "format": "decimal",
-            "description": "Upper bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
+            "description": "The upper limit for the interest correction in the funding formula, as a decimal ratio. The eight-hour formula is P + clamp(I - P, clampLowerBound, clampUpperBound). I is baseInterestRate. P is the average premium index. The hourly rate equals the formula result divided by eight, subject to fundingRateChangeFloor and fundingRateChangeCap.",
             "example": "0.0005"
           },
           "clampLowerBound": {
             "type": "string",
             "format": "decimal",
-            "description": "Lower bound of the correction term in the eight-hour formula P + clamp(I - P, lowerBound, upperBound), where I is the eight-hour base interest rate and P is the average premium index. Divide the entire result by eight before applying hourly funding-rate limits. Not a bound on the final funding rate.",
+            "description": "The lower limit for the interest correction in the funding formula, as a decimal ratio. The formula and hourly rate limits are described in clampUpperBound.",
             "example": "-0.0005"
-          },
-          "liqDurationBlocks": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Configured liquidation duration in blocks.",
-            "example": 100
-          },
-          "bucketSlippageStep": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Slippage step per liquidation bucket.",
-            "example": "0.10"
-          },
-          "bucketSlippageLimit": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Maximum allowed slippage across all buckets.",
-            "example": "1.00"
-          },
-          "liquidityDustValue": {
-            "type": "string",
-            "format": "decimal",
-            "description": "Minimum value in quote asset considered as dust.",
-            "example": "1.0"
           },
           "liquidationFeeRates": {
             "type": "object",
@@ -23550,6 +25421,28 @@
             "USDC"
           ],
           "example": "USDC"
+        }
+      },
+      "InsuranceFundInterval": {
+        "name": "interval",
+        "in": "query",
+        "required": false,
+        "description": "The interval between insurance fund snapshots. The minimum interval is one hour.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1h",
+            "2h",
+            "4h",
+            "8h",
+            "12h",
+            "1d",
+            "3d",
+            "1w",
+            "1M"
+          ],
+          "default": "1d",
+          "example": "1d"
         }
       }
     }

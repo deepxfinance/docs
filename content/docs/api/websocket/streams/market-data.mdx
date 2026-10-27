@@ -475,3 +475,60 @@ Real-time utilization rates, APRs, and supply/borrow totals for a lending asset.
 When no `asset` filter is provided, a separate push frame is delivered for each active lending asset.
 
 **Update cadence**: On change
+
+---
+
+## 10. Liquidations (`perp@liquidations`)
+
+Pushes new liquidation records for the perpetual market selected by the required `symbol` parameter. Record selection follows [`GET /v1/perp/markets/{symbol}/liquidations`](../../rest-api/paths/perp-markets.yaml#liquidations).
+
+The `data` object follows `LiqRecord`. `liqType` is always `LIQUIDATE_PERP`. The `detail` object follows `LiqDetailPerp`, and its `marketId` identifies the subscribed market.
+
+**Channel**: `perp@liquidations`
+
+**Subscribe**:
+```json
+{
+  "method": "subscribe",
+  "id": "req-10",
+  "params": {
+    "channel": "perp@liquidations",
+    "symbol": "ETH-USDC"
+  }
+}
+```
+
+**Push payload**:
+```json
+{
+  "channel": "perp@liquidations",
+  "data": {
+    "id": "918273",
+    "liqId": 3,
+    "time": 1738843945610,
+    "subaccount": "0x1f5B1e4E5c2A3d9F0bC6a7D8e9F0a1B2c3D4e5F6",
+    "liquidator": "0x3a1B2c3D4e5F61f5B1e4E5c2A3d9F0bC6a7D8e9F",
+    "liqType": "LIQUIDATE_PERP",
+    "detail": {
+      "marketId": 3,
+      "settlementPrice": "2034.10",
+      "liquidateBaseQty": "1.250",
+      "targetAccountOrderId": "42",
+      "liquidatorOrderId": "17",
+      "liquidatorFee": "0.196052",
+      "insuranceFundFee": "0.098026"
+    },
+    "marginShortage": "123.456",
+    "marginFreed": "654.321",
+    "canceledOrders": {
+      "spot": [],
+      "perp": ["1713825800000"]
+    },
+    "bankrupt": false,
+    "txHash": "0x9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e",
+    "blockNumber": 15089464
+  }
+}
+```
+
+**Update cadence**: On new liquidation record

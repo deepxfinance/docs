@@ -23,14 +23,23 @@ Pushes position state whenever size, entry price, or PnL changes.
 **Channel**: `account@perp-positions`
 **Scope**: `subaccount` (required) — positions are per subaccount, not per wallet
 
-**Subscribe**:
+**Optional subscription parameter**:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `symbol` | string | Filter by [perpetual market symbol](../../schemas/PerpSymbol.yaml). |
+
+If `symbol` is omitted, the subscription covers all perpetual markets for the subaccount. The filter applies to both the initial snapshot and subsequent updates.
+
+**Subscribe** (single market):
 ```json
 {
   "method": "subscribe",
   "id": "req-10",
   "params": {
     "channel": "account@perp-positions",
-    "subaccount": "{SUBACCOUNT_ADDRESS}"
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "symbol": "ETH-USDC"
   }
 }
 ```
@@ -153,14 +162,23 @@ Pushes order state as it transitions through its lifecycle: open → partially f
 **Channel**: `account@perp-orders`
 **Scope**: `subaccount` or `wallet` (one required)
 
-**Subscribe**:
+**Optional subscription parameter**:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `symbol` | string | Filter by [perpetual market symbol](../../schemas/PerpSymbol.yaml). |
+
+If `symbol` is omitted, the subscription covers all perpetual markets within the account scope. The filter applies to both the initial snapshot and subsequent updates. For a wallet subscription, the filter applies across all of that wallet's subaccounts.
+
+**Subscribe** (single market):
 ```json
 {
   "method": "subscribe",
   "id": "req-11",
   "params": {
     "channel": "account@perp-orders",
-    "subaccount": "{SUBACCOUNT_ADDRESS}"
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "symbol": "ETH-USDC"
   }
 }
 ```
@@ -286,14 +304,23 @@ Pushes spot order state changes.
 **Channel**: `account@spot-orders`
 **Scope**: `subaccount` or `wallet` (one required)
 
-**Subscribe**:
+**Optional subscription parameter**:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `symbol` | string | Filter by [spot market symbol](../../schemas/SpotSymbol.yaml). |
+
+If `symbol` is omitted, the subscription covers all spot markets within the account scope. The filter applies to both the initial snapshot and subsequent updates. For a wallet subscription, the filter applies across all of that wallet's subaccounts.
+
+**Subscribe** (single market):
 ```json
 {
   "method": "subscribe",
   "id": "req-12",
   "params": {
     "channel": "account@spot-orders",
-    "subaccount": "{SUBACCOUNT_ADDRESS}"
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "symbol": "BTC-USDC"
   }
 }
 ```
@@ -344,14 +371,23 @@ Pushes each fill as it is matched, from the perspective of the scoped account.
 **Channel**: `account@perp-trades`
 **Scope**: `subaccount` or `wallet` (one required)
 
-**Subscribe**:
+**Optional subscription parameter**:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `symbol` | string | Filter by [perpetual market symbol](../../schemas/PerpSymbol.yaml). |
+
+If `symbol` is omitted, the subscription covers all perpetual markets within the account scope. The filter applies to both the initial snapshot and subsequent updates. For a wallet subscription, the filter applies across all of that wallet's subaccounts.
+
+**Subscribe** (single market):
 ```json
 {
   "method": "subscribe",
   "id": "req-13",
   "params": {
     "channel": "account@perp-trades",
-    "subaccount": "{SUBACCOUNT_ADDRESS}"
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "symbol": "ETH-USDC"
   }
 }
 ```
@@ -393,14 +429,23 @@ Pushes each spot fill from the perspective of the scoped account.
 **Channel**: `account@spot-trades`
 **Scope**: `subaccount` or `wallet` (one required)
 
-**Subscribe**:
+**Optional subscription parameter**:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `symbol` | string | Filter by [spot market symbol](../../schemas/SpotSymbol.yaml). |
+
+If `symbol` is omitted, the subscription covers all spot markets within the account scope. The filter applies to both the initial snapshot and subsequent updates. For a wallet subscription, the filter applies across all of that wallet's subaccounts.
+
+**Subscribe** (single market):
 ```json
 {
   "method": "subscribe",
   "id": "req-14",
   "params": {
     "channel": "account@spot-trades",
-    "subaccount": "{SUBACCOUNT_ADDRESS}"
+    "subaccount": "{SUBACCOUNT_ADDRESS}",
+    "symbol": "BTC-USDC"
   }
 }
 ```

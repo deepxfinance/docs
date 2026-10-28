@@ -2,7 +2,7 @@
   "openapi": "3.2.0",
   "info": {
     "title": "DeepX API",
-    "version": "1.7.1",
+    "version": "1.7.2",
     "description": "# REST API Guide\n\n## General API Information\n\n- **Time Format**: All timestamps are in milliseconds (ms) by default.\n- **Data Order**: Data is returned in chronological order, unless noted otherwise. Here is how the `startTime` and `endTime` parameters work:\n  * Without `startTime` or `endTime`, returns the most recent items up to the `limit`.\n  * With `startTime`, returns oldest items from `startTime` up to the `limit`.\n  * With `endTime`, returns most recent items up to `endTime` and the `limit`.\n  * With both, behaves like `startTime` but does not exceed `endTime`.\n- **Historical Data Retrieval**: Historical endpoints use one of two response patterns. Check the endpoint definition for its parameters and response schema:\n  * **Cursor-paginated endpoints** declare `cursor` and return an object containing `items`, `nextCursor`, and `hasNext`. `nextCursor` is an opaque, base64-encoded value; do not parse it or infer a record ID, timestamp, or ordering from it. When `hasNext` is `true`, pass `nextCursor` unchanged as `cursor` in the next request. Stop only when `hasNext` is `false`; the number of returned items is not a reliable completion signal. `nextCursor` is `null` on the final page.\n  * **Time-window endpoints** declare `startTime` and/or `endTime` but no `cursor`, and return an array directly. These responses do not include `nextCursor` or `hasNext`. Candles, open-interest history, funding-rate history, long-short-ratio history, lending-market history, and insurance-fund history use this pattern.\n  * When a cursor-paginated endpoint also declares `startTime` or `endTime`, those time filters apply to every page. Reuse the same filters when passing `nextCursor` to the next request.\n",
     "license": {
       "name": "MIT",
@@ -2460,7 +2460,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -2498,7 +2503,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -2818,7 +2828,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -2945,7 +2960,12 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC"
+                                  "SOL-USDC",
+                                  "TRX-USDC",
+                                  "DOGE-USDC",
+                                  "HYPE-USDC",
+                                  "ZEC-USDC",
+                                  "SUI-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -3236,7 +3256,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -3417,7 +3442,12 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC"
+                                  "SOL-USDC",
+                                  "TRX-USDC",
+                                  "DOGE-USDC",
+                                  "HYPE-USDC",
+                                  "ZEC-USDC",
+                                  "SUI-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -3827,7 +3857,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -3936,7 +3971,12 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC"
+                                  "SOL-USDC",
+                                  "TRX-USDC",
+                                  "DOGE-USDC",
+                                  "HYPE-USDC",
+                                  "ZEC-USDC",
+                                  "SUI-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -4346,7 +4386,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -4475,7 +4520,12 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC"
+                                  "SOL-USDC",
+                                  "TRX-USDC",
+                                  "DOGE-USDC",
+                                  "HYPE-USDC",
+                                  "ZEC-USDC",
+                                  "SUI-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -4771,7 +4821,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -4846,7 +4901,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -9078,7 +9138,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -9950,7 +10015,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -12707,7 +12777,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -13065,7 +13140,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -13112,7 +13192,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -13523,7 +13608,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -13707,7 +13797,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -13734,7 +13829,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -13961,7 +14061,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -14337,7 +14442,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -14435,7 +14545,12 @@
                                 "enum": [
                                   "BTC-USDC",
                                   "ETH-USDC",
-                                  "SOL-USDC"
+                                  "SOL-USDC",
+                                  "TRX-USDC",
+                                  "DOGE-USDC",
+                                  "HYPE-USDC",
+                                  "ZEC-USDC",
+                                  "SUI-USDC"
                                 ],
                                 "example": "BTC-USDC"
                               },
@@ -14710,7 +14825,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -15040,7 +15160,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -15067,7 +15192,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -15294,7 +15424,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -15395,7 +15530,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -15623,7 +15763,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -15649,7 +15794,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -15876,7 +16026,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -16184,7 +16339,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -16210,7 +16370,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -16431,7 +16596,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -16531,7 +16701,12 @@
                         "enum": [
                           "BTC-USDC",
                           "ETH-USDC",
-                          "SOL-USDC"
+                          "SOL-USDC",
+                          "TRX-USDC",
+                          "DOGE-USDC",
+                          "HYPE-USDC",
+                          "ZEC-USDC",
+                          "SUI-USDC"
                         ],
                         "example": "BTC-USDC"
                       },
@@ -16753,7 +16928,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -17492,7 +17672,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             }
@@ -17539,7 +17724,12 @@
                       "enum": [
                         "BTC-USDC",
                         "ETH-USDC",
-                        "SOL-USDC"
+                        "SOL-USDC",
+                        "TRX-USDC",
+                        "DOGE-USDC",
+                        "HYPE-USDC",
+                        "ZEC-USDC",
+                        "SUI-USDC"
                       ],
                       "example": "BTC-USDC"
                     },
@@ -18145,6 +18335,7 @@
               "type": "string",
               "description": "A lending asset symbol.",
               "enum": [
+                "BTC",
                 "ETH",
                 "SOL",
                 "USDC"
@@ -18754,6 +18945,7 @@
               "type": "string",
               "description": "A lending asset symbol.",
               "enum": [
+                "BTC",
                 "ETH",
                 "SOL",
                 "USDC"
@@ -19030,6 +19222,7 @@
               "type": "string",
               "description": "A lending asset symbol.",
               "enum": [
+                "BTC",
                 "ETH",
                 "SOL",
                 "USDC"
@@ -19961,7 +20154,12 @@
         "enum": [
           "BTC-USDC",
           "ETH-USDC",
-          "SOL-USDC"
+          "SOL-USDC",
+          "TRX-USDC",
+          "DOGE-USDC",
+          "HYPE-USDC",
+          "ZEC-USDC",
+          "SUI-USDC"
         ],
         "example": "BTC-USDC"
       },
@@ -19979,6 +20177,7 @@
         "type": "string",
         "description": "A lending asset symbol.",
         "enum": [
+          "BTC",
           "ETH",
           "SOL",
           "USDC"
@@ -20206,7 +20405,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -20311,7 +20515,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -20349,7 +20558,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             },
@@ -22139,7 +22353,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -22396,7 +22615,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -22558,7 +22782,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -22696,7 +22925,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -22918,7 +23152,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -23014,7 +23253,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -24172,7 +24416,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -24401,7 +24650,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -24486,7 +24740,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -24531,7 +24790,12 @@
               "enum": [
                 "BTC-USDC",
                 "ETH-USDC",
-                "SOL-USDC"
+                "SOL-USDC",
+                "TRX-USDC",
+                "DOGE-USDC",
+                "HYPE-USDC",
+                "ZEC-USDC",
+                "SUI-USDC"
               ],
               "example": "BTC-USDC"
             },
@@ -24573,7 +24837,12 @@
             "enum": [
               "BTC-USDC",
               "ETH-USDC",
-              "SOL-USDC"
+              "SOL-USDC",
+              "TRX-USDC",
+              "DOGE-USDC",
+              "HYPE-USDC",
+              "ZEC-USDC",
+              "SUI-USDC"
             ],
             "example": "BTC-USDC"
           },
@@ -25220,7 +25489,12 @@
           "enum": [
             "BTC-USDC",
             "ETH-USDC",
-            "SOL-USDC"
+            "SOL-USDC",
+            "TRX-USDC",
+            "DOGE-USDC",
+            "HYPE-USDC",
+            "ZEC-USDC",
+            "SUI-USDC"
           ],
           "example": "BTC-USDC"
         }
@@ -25402,7 +25676,12 @@
           "enum": [
             "BTC-USDC",
             "ETH-USDC",
-            "SOL-USDC"
+            "SOL-USDC",
+            "TRX-USDC",
+            "DOGE-USDC",
+            "HYPE-USDC",
+            "ZEC-USDC",
+            "SUI-USDC"
           ],
           "example": "BTC-USDC"
         }
@@ -25416,6 +25695,7 @@
           "type": "string",
           "description": "A lending asset symbol.",
           "enum": [
+            "BTC",
             "ETH",
             "SOL",
             "USDC"

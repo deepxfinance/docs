@@ -1,7 +1,6 @@
 'use client';
 
 import { Children, cloneElement, createContext, Fragment, isValidElement, type ReactNode } from 'react';
-import { Accordions } from '@fumadocs/api-docs/components/accordion';
 import type { CreateOpenAPIPageOptions } from 'fumadocs-openapi/ui';
 
 export const AutoExpandResponseContext = createContext(false);
@@ -10,11 +9,16 @@ export const AutoExpandResponseContext = createContext(false);
 // and configure its response accordion through the operation layout slot.
 export function expandSuccessResponse(responses: ReactNode): ReactNode {
   return Children.map(responses, (child) => {
-    if (!isValidElement<{ children?: ReactNode; defaultValue?: string[] }>(child)) return child;
+    if (!isValidElement<{ children?: ReactNode; type?: string; defaultValue?: string[] }>(child)) return child;
     if (child.type === Fragment) {
       return cloneElement(child, { children: expandSuccessResponse(child.props.children) });
     }
-    if (child.type !== Accordions) return child;
+    // Fumadocs may use a different installed copy of its accordion component.
+    // Identify the response group by its status-bearing children instead of component identity.
+    const responses = Children.toArray(child.props.children);
+    if (child.props.type !== 'multiple' || !responses.some((response) =>
+      isValidElement<{ status?: string }>(response) && typeof response.props.status === 'string'
+    )) return child;
 
     return cloneElement(child, {
       defaultValue: ['200'],

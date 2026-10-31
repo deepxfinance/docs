@@ -1,4 +1,5 @@
 baseInterestRate: "0.01%"
+impactMarginValue: "100"
 baseInterestPeriod: "8 hours"
 clampLowerBound: "-0.02%"
 clampUpperBound: "0.02%"

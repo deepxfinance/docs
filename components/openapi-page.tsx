@@ -16,8 +16,8 @@ export const OpenAPIPage = createOpenAPIPage({
         ...props,
         client: props.client ?? { name: 'body', as: 'body' },
         resolver: (schema) => ({
-          dereferenced: schema,
-          $ref: typeof schema === 'object' ? ctx.schema.getRawRef(schema) : undefined,
+          dereferenced: ctx.schema.resolve(schema),
+          $ref: typeof schema === 'object' ? schema.$ref : undefined,
         }),
         renderMarkdown: ctx._default_processMarkdown,
       };

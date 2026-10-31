@@ -15,7 +15,7 @@
     "@fumadocs/api-docs": "0.0.2",
     "fumadocs-core": "^16.10.0",
     "fumadocs-mdx": "13.0.4",
-    "fumadocs-openapi": "11.0.3",
+    "fumadocs-openapi": "11.4.3",
     "fumadocs-ui": "^16.10.0",
     "katex": "^0.16.22",
     "lucide-react": "^0.554.0",

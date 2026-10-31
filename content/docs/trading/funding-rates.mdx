@@ -9,7 +9,7 @@ Funding Rate is a periodic rate applied to perpetual positions to calculate the 
 
 ## Funding Rate Calculation
 
-The funding rate is calculated based on the **Premium Index** and a fixed **Base Interest Rate**. The Base Interest Rate ($R_\text{base}$) is set to **0.01% per 8 hours**.
+The funding rate is calculated based on the **Premium Index** and a fixed **Base Interest Rate**. The Base Interest Rate ($R_\text{base}$) is set to **<ParameterValue source="funding" name="baseInterestRate" /> per <ParameterValue source="funding" name="baseInterestPeriod" />**.
 
 ### Premium Index
 
@@ -27,7 +27,7 @@ where:
 
 ### Average Premium Index
 
-The premium index is sampled periodically (currently every 5 seconds). The Average Premium Index ($P$) is the average of the premium index over the funding interval (currently every hour).
+The premium index is sampled periodically (currently every <ParameterValue source="funding" name="premiumSamplePeriod" />). The Average Premium Index ($P$) is the average of the premium index over the funding interval (currently every <ParameterValue source="funding" name="fundingInterval" />).
 
 ### Funding Rate Formula
 
@@ -37,7 +37,7 @@ The funding rate is calculated by taking the 8-hour base interest rate and addin
 \text{FundingRate} = P + \text{clamp}(R_\text{base} - P, \text{lowerBound}, \text{upperBound})
 ```
 
-The **clamp function** restricts a value to a specific range [lowerBound, upperBound], where the lower bound and upper bound are set to -0.02% and 0.02% respectively. 
+The **clamp function** restricts a value to a specific range [lowerBound, upperBound], where the lower bound and upper bound are set to <ParameterValue source="funding" name="clampLowerBound" /> and <ParameterValue source="funding" name="clampUpperBound" /> respectively.
 
 If the input value is below the minimum, it returns the minimum; if above the maximum, it returns the maximum; otherwise, it returns the input value unchanged. This ensures the funding rate is equal to the base interest rate when the difference between the base interest rate and the average premium index is within the clamp range.
 
@@ -49,14 +49,14 @@ The funding rate formula applies to an 8-hour period. However, funding payments 
 
 To protect traders from extreme market conditions, the funding rate is subject to upper and lower limits:
 
-- **Maximum Funding Rate (Cap)**: +0.2% per hour
-- **Minimum Funding Rate (Floor)**: -0.2% per hour
+- **Maximum Funding Rate (Cap)**: <ParameterValue source="funding" name="fundingRateChangeCap" /> per hour
+- **Minimum Funding Rate (Floor)**: <ParameterValue source="funding" name="fundingRateChangeFloor" /> per hour
 
 These limits ensure that funding payments remain within reasonable bounds, even during periods of significant market volatility or imbalance between long and short positions. If the calculated funding rate exceeds these limits, it will be capped at the maximum or minimum value.
 
 ## Funding Interval and Payment
 
-Funding payments are exchanged every hour.
+Funding payments are exchanged every <ParameterValue source="funding" name="fundingInterval" />.
 
 The amount paid or received is calculated as the product of the [Notional Value](/glossary#notional-value) and the funding rate.
 

@@ -1,0 +1,8 @@
+baseInterestRate: "0.01%"
+baseInterestPeriod: "8 hours"
+clampLowerBound: "-0.02%"
+clampUpperBound: "0.02%"
+fundingRateChangeFloor: "-0.2%"
+fundingRateChangeCap: "+0.2%"
+premiumSamplePeriod: "5 seconds"
+fundingInterval: "1 hour"

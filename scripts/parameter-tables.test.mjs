@@ -59,3 +59,21 @@ test('invalid parameter data fails instead of publishing incomplete or coerced v
     assert.throws(() => renderParameterTable({ columns, rows: [row] }), /row 1/);
   }
 });
+
+test('funding values appear in page HTML, search data, and Markdown', async () => {
+  const data = yaml.load(await readFile(new URL('../data/parameters/funding.yaml', import.meta.url), 'utf8'));
+  const page = await import('../content/docs/trading/funding-rates.mdx?collection=docs');
+  const html = renderToStaticMarkup(createElement(page.default, {
+    components: { Callout: ({ children }) => createElement('div', null, children) },
+  }));
+  const search = page.structuredData.contents.map((item) => item.content).join(' ');
+  for (const [key, value] of Object.entries(data)) {
+    for (const [where, content] of [['HTML', html], ['Markdown', page._markdown], ['search', search]]) {
+      assert.ok(content.includes(value), `${where} must include ${key}: ${value}`);
+    }
+  }
+  assert.ok(!html.includes('ParameterValue'));
+  assert.ok(!page._markdown.includes('ParameterValue'));
+  const perp = await import('../content/docs/trading/perpetuals-trading.mdx?collection=docs');
+  assert.ok(perp._markdown.includes(`every ${data.fundingInterval}`));
+});

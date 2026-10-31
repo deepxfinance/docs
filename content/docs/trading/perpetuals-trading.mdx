@@ -18,7 +18,7 @@ Opening a position requires [Initial Margin](/glossary#initial-margin) as collat
 3. Set the quantity and price. The maximum notional is your available margin times your effective [Leverage](/trading/leverage#on-chain-leverage) cap.
 4. Submit the order. It executes against the order book, and any filled quantity becomes your position.
 
-Your position's margin requirement and liquidation distance follow the formulas in [Leverage](/trading/leverage). While it stays open, it accrues [Funding Rates](/trading/funding-rates) every hour.
+Your position's margin requirement and liquidation distance follow the formulas in [Leverage](/trading/leverage). While it stays open, it accrues [Funding Rates](/trading/funding-rates) every <ParameterValue source="funding" name="fundingInterval" />.
 
 ## Closing a Position
 

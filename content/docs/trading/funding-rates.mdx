@@ -23,11 +23,11 @@ where:
 - **Impact Bid Price**: The average execution price to trade the Impact Notional Value on the bid side of the order book.
 - **Impact Ask Price**: The average execution price to trade the Impact Notional Value on the ask side of the order book.
 
-**Impact Notional Value** is calculated by dividing an **Impact Margin Value** (set at $100) by the [Initial Margin Ratio](/glossary#initial-margin-ratio-imr) for each market. This value determines the size of the hypothetical trade used to calculate impact prices, providing a standardized measure of how the perpetual contract price deviates from the index price under realistic trading conditions. 
+**Impact Notional Value** is calculated by dividing an **Impact Margin Value** (set at <ParameterValue source="funding" name="impactMarginValue" /> units of the market's quote asset) by the [Initial Margin Ratio](/glossary#initial-margin-ratio-imr) for each market. This value determines the size of the hypothetical trade used to calculate impact prices, providing a standardized measure of how the perpetual contract price deviates from the index price under realistic trading conditions.
 
 ### Average Premium Index
 
-The premium index is sampled periodically (currently every <ParameterValue source="funding" name="premiumSamplePeriod" />). The Average Premium Index ($P$) is the average of the premium index over the funding interval (currently every <ParameterValue source="funding" name="fundingInterval" />).
+The premium index is sampled periodically (currently every <ParameterValue source="funding" name="premiumSamplePeriod" />). The Average Premium Index ($P$) is the equally weighted average of samples over the funding interval (currently every <ParameterValue source="funding" name="fundingInterval" />). If either impact price is unavailable, the sample is zero.
 
 ### Funding Rate Formula
 
